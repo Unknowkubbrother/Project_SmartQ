@@ -9,10 +9,12 @@ import Footer from "@/components/ui/footer";
 function App() {
   const [cardData, setCardData] = useState<ThaiIDCardData | null>(null);
   const [, setErrorMessage] = useState<string | null>(null);
+  const [photoData, setPhotoData] = useState<string | null>(null);
 
   useEffect(() => {
     let unlistenData: UnlistenFn | null = null;
     let unlistenError: UnlistenFn | null = null;
+    let unlistenPhoto: UnlistenFn | null = null;
 
     const setupListeners = async () => {
       unlistenData = await listen("thai_id_data", (event) => {
@@ -28,6 +30,14 @@ function App() {
         setErrorMessage(null);
       });
 
+      unlistenPhoto = await listen("thai_id_photo", (event) => {
+        const payload = event.payload;
+        const photoBase64 = payload as string;
+        // You can handle the photoBase64 as needed, e.g., display it or store it
+        setPhotoData(photoBase64);
+        console.log("Received photo in Base64 format:", photoBase64);
+      });
+
       unlistenError = await listen("thai_id_error", (event) => {
         console.error("Error received:", event.payload);
         // const payload = event.payload;
@@ -35,6 +45,7 @@ function App() {
         //   setErrorMessage(payload);
         // }
         setCardData(null)
+        setPhotoData(null);
       });
     };
 
@@ -42,6 +53,7 @@ function App() {
     return () => {
       if (unlistenData) unlistenData();
       if (unlistenError) unlistenError();
+      if (unlistenPhoto) unlistenPhoto();
     };
   }, []);
 
@@ -58,6 +70,13 @@ function App() {
           {errorMessage}
         </div> */}
       {/* )} */}
+      {
+        photoData && (
+          <div className="absolute top-4 right-4 border p-2 bg-white">
+            <img src={`data:image/jpeg;base64,${photoData}`} alt="ID Card Photo" width={100} height={120} />
+          </div>
+        )
+      }
 
       <Footer />
     </main>
