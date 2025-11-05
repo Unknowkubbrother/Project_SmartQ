@@ -2,17 +2,6 @@ import { useState } from "react";
 import { ThaiIDCardData } from "@/interfaces";
 import ThaiIDCard from "@/components/ThaiIDCard";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 import axios from "axios";
 import Swal from "sweetalert2";
 
@@ -80,15 +69,28 @@ function Main({ cardData, photoData, onCancel }: { cardData: ThaiIDCardData | nu
 
   const handleOnCancel = () => {
     Swal.fire({
-      title: "กลับสู่หน้าหลัก",
-      timer: 3000,
-      timerProgressBar: true,
-      didOpen: () => {
-        Swal.showLoading();
+      title: "คุณแน่ใจหรือไม่ว่าต้องการยกเลิก?",
+      text: "ข้อมูลที่กรอกจะไม่ถูกบันทึก",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "ใช่, ยกเลิก",
+      cancelButtonText: "ไม่, กลับไป"
+    }).then((result) => {
+      if (result.isConfirmed) {
+        Swal.fire({
+          title: "กลับสู่หน้าหลัก",
+          timer: 3000,
+          timerProgressBar: true,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        }).then(() => {
+          setSelectedService(null);
+          onCancel();
+        });
       }
-    }).then(() => {
-      setSelectedService(null);
-      onCancel();
     });
   }
 
@@ -110,23 +112,7 @@ function Main({ cardData, photoData, onCancel }: { cardData: ThaiIDCardData | nu
       </div>
       <div className="w-full flex justify-around p-4 mt-3" >
         <Button variant="default" onClick={submitServiceSelection}>เข้ารับบริการ</Button>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive">ยกเลิก</Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>ยืนยันการยกเลิก?</AlertDialogTitle>
-              <AlertDialogDescription>
-                หากท่านยกเลิก การดำเนินการทั้งหมดจะถูกยกเลิก และท่านจะต้องเริ่มต้นใหม่
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>ไม่ยกเลิก</AlertDialogCancel>
-              <AlertDialogAction onClick={() => { handleOnCancel(); }}>ยืนยันการยกเลิก</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Button variant="destructive" onClick={() => { handleOnCancel(); }}>ยืนยันการยกเลิก</Button>
       </div>
     </main>
   )
