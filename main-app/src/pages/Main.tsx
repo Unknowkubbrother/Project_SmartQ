@@ -112,7 +112,7 @@ function Main({ cardData, photoData, onCancel }: { cardData: ThaiIDCardData | nu
       </div>
       <div className="w-full flex justify-around p-4 mt-3" >
         <Button variant="default" onClick={submitServiceSelection}>เข้ารับบริการ</Button>
-        <Button variant="destructive" onClick={() => { handleOnCancel(); }}>ยืนยันการยกเลิก</Button>
+        <Button variant="destructive" onClick={() => { handleOnCancel(); }}>ยกเลิก</Button>
       </div>
     </main>
   )
