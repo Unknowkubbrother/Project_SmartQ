@@ -32,7 +32,7 @@ function ThaiIDCard({
   photoData: string | null;
 }) {
   return (
-    <main className="w-full max-w-2xl mx-auto p-2 scale-95">
+    <main className="w-full mx-auto p-2 scale-95">
       <section className="bg-white/80 backdrop-blur-sm border border-slate-200 rounded-xl shadow-md overflow-hidden relative">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
           <h3 className="text-base font-semibold text-slate-800">ข้อมูลส่วนตัว</h3>

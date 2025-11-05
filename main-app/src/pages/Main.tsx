@@ -18,14 +18,14 @@ function Main({ cardData, photoData, onCancel }: { cardData: ThaiIDCardData | nu
   return (
     <main className="w-full flex flex-col justify-between p-4">
       <ThaiIDCard cardData={cardData} photoData={photoData} />
-      <div className="w-full h-[300px] lg:h-[500px] lg:max-h-[500px] bg-sky-400 mt-4 grid grid-flow-row grid-cols-2 gap-4 rounded-sm p-4 text-white overflow-auto">
-        <Button className="bg-sky-600 rounded-lg p-4 h-[100px]">ช่องบริการทั่วไป</Button>
-        <Button className="bg-sky-600 rounded-lg p-4 h-[100px]">ช่องบริการนัดหมาย</Button>
-        <Button className="bg-sky-600 rounded-lg p-4 h-[100px]">ช่องบริการฉุกเฉิน</Button>
-        <Button className="bg-sky-600 rounded-lg p-4 h-[100px]">ช่องบริการอื่นๆ</Button>
-        <Button className="bg-sky-600 rounded-lg p-4 h-[100px]">ติดต่อเจ้าหน้าที่</Button>
+      <div className="w-full h-[300px] lg:h-[500px] lg:max-h-[500px] bg-sky-100 mt-4 grid grid-flow-row grid-cols-2 gap-4 rounded-sm p-4 text-white overflow-auto">
+        <Button className="bg-sky-600 rounded-lg p-4 h-[100px] lg:h-[200px]">ช่องบริการทั่วไป</Button>
+        <Button className="bg-sky-600 rounded-lg p-4 h-[100px] lg:h-[200px]">ช่องบริการนัดหมาย</Button>
+        <Button className="bg-sky-600 rounded-lg p-4 h-[100px] lg:h-[200px]">ช่องบริการฉุกเฉิน</Button>
+        <Button className="bg-sky-600 rounded-lg p-4 h-[100px] lg:h-[200px]">ช่องบริการอื่นๆ</Button>
+        <Button className="bg-sky-600 rounded-lg p-4 h-[100px] lg:h-[200px]">ติดต่อเจ้าหน้าที่</Button>
       </div>
-      <div className="fixed bottom-10 w-full flex justify-around p-4" >
+      <div className="w-full flex justify-around p-4 mt-3" >
         <Button variant="default">เข้ารับบริการ</Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
