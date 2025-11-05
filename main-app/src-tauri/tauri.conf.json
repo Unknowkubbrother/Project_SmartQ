@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "main-app",
+  "productName": "SmartQ",
   "version": "0.1.0",
-  "identifier": "com.unknowkubbrother.main-app",
+  "identifier": "com.unknowkubbrother.smartq",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "title": "SmartQ",
-        "width": 500,
+        "width": 600,
         "height": 800
       }
     ],
