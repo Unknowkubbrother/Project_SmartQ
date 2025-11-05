@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "main-app",
-        "width": 800,
-        "height": 600
+        "title": "SmartQ",
+        "width": 500,
+        "height": 800
       }
     ],
     "security": {

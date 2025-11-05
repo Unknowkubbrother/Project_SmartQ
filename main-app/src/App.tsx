@@ -1,49 +1,65 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
+import { useState, useEffect } from "react";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import {ThaiIDCardData} from "@/interfaces";
 import "./App.css";
+import ThaiIDCard from "@/components/ThaiIDCard";
+import Home from "@/pages/Home";
+import Footer from "@/components/ui/footer";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [cardData, setCardData] = useState<ThaiIDCardData | null>(null);
+  const [, setErrorMessage] = useState<string | null>(null);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  useEffect(() => {
+    let unlistenData: UnlistenFn | null = null;
+    let unlistenError: UnlistenFn | null = null;
+
+    const setupListeners = async () => {
+      unlistenData = await listen("thai_id_data", (event) => {
+        const payload = event.payload;
+        const dataLine = (payload as string).split("\n");
+        const dataObj: any = {};
+        dataLine.forEach(line => {
+          const [key, value] = line.split(":");
+          dataObj[key.trim()] = value.trim();
+        });
+        setCardData(dataObj as ThaiIDCardData);
+
+        setErrorMessage(null);
+      });
+
+      unlistenError = await listen("thai_id_error", (event) => {
+        console.error("Error received:", event.payload);
+        // const payload = event.payload;
+        // if (typeof payload === "string") {
+        //   setErrorMessage(payload);
+        // }
+        setCardData(null)
+      });
+    };
+
+    setupListeners();
+    return () => {
+      if (unlistenData) unlistenData();
+      if (unlistenError) unlistenError();
+    };
+  }, []);
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <main className="w-full h-lvh realative">
+      <div className="w-full h-5"></div>
+      {!cardData? (
+        <Home />
+      ) : (
+        <ThaiIDCard cardData={cardData} />
+      )}
+      {/* {errorMessage && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded shadow">
+          {errorMessage}
+        </div> */}
+      {/* )} */}
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+      <Footer />
     </main>
   );
 }

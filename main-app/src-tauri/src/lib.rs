@@ -1,14 +1,27 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+// src-tauri/src/lib.rs
+mod idcard_reader;
+use std::thread;
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
+// #[cfg(mobile)]
+// #[tauri::mobile_entry_point]
+// pub fn run(app_handle: idcard_reader::AppHandle) {
+//     thread::spawn(move || {
+//         let _ = idcard_reader::run_event_loop(app_handle);
+//     });
+// }
+
+#[cfg(not(mobile))]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .setup(|app| {
+            let app_handle = app.handle().clone();
+            thread::spawn(move || {
+                if let Err(e) = idcard_reader::run_event_loop(app_handle) {
+                    eprintln!("Error in card reader event loop: {}", e);
+                }
+            });
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
