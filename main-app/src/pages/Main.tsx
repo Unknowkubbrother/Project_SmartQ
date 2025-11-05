@@ -3,7 +3,7 @@ import ThaiIDCard from "@/components/ThaiIDCard";
 import { Button } from "@/components/ui/button";
 
 
-function Main({ cardData, photoData }: { cardData: ThaiIDCardData | null; photoData: string | null; }) {
+function Main({ cardData, photoData , onCancel}: { cardData: ThaiIDCardData | null; photoData: string | null; onCancel: () => void; }) {
   return (
     <main className="w-full flex flex-col justify-between p-4">
         <ThaiIDCard cardData={cardData} photoData={photoData} />
@@ -28,7 +28,7 @@ function Main({ cardData, photoData }: { cardData: ThaiIDCardData | null; photoD
         </div>
         <div className="fixed bottom-10 w-full flex justify-around p-4" >
             <Button variant="default">เข้ารับบริการ</Button>
-            <Button variant="destructive">ยกเลิก</Button>
+            <Button variant="destructive" onClick={onCancel}>ยกเลิก</Button>
         </div>
     </main>
   )

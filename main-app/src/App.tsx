@@ -1,15 +1,20 @@
 import { useState, useEffect } from "react";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import {ThaiIDCardData} from "@/interfaces";
+import { ThaiIDCardData } from "@/interfaces";
 import "./App.css";
 import Home from "@/pages/Home";
 import Footer from "@/components/ui/Footer";
 import Main from "@/pages/Main";
+import { Progress } from "@/components/ui/progress";
 
 function App() {
   const [cardData, setCardData] = useState<ThaiIDCardData | null>(null);
+  const [incomingData, setIncomingData] = useState<ThaiIDCardData | null>(null);
   const [, setErrorMessage] = useState<string | null>(null);
   const [photoData, setPhotoData] = useState<string | null>(null);
+
+  const [loadingMain, setLoadingMain] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     let unlistenData: UnlistenFn | null = null;
@@ -21,12 +26,16 @@ function App() {
         const payload = event.payload;
         const dataLine = (payload as string).split("\n");
         const dataObj: any = {};
-        dataLine.forEach(line => {
+        dataLine.forEach((line) => {
           const [key, value] = line.split(":");
-          dataObj[key.trim()] = value.trim();
+          dataObj[key?.trim()] = value?.trim();
         });
-        setCardData(dataObj as ThaiIDCardData);
+
+        // don't set cardData immediately — mark incoming and start loader
+        setIncomingData(dataObj as ThaiIDCardData);
         setErrorMessage(null);
+        setProgress(13);
+        setLoadingMain(true);
       });
 
       unlistenPhoto = await listen("thai_id_photo", (event) => {
@@ -41,8 +50,12 @@ function App() {
         if (typeof payload === "string") {
           setErrorMessage(payload);
         }
-        setCardData(null)
+        // cancel any pending load and clear data
+        setIncomingData(null);
+        setLoadingMain(false);
+        setCardData(null);
         setPhotoData(null);
+        setProgress(0);
       });
     };
 
@@ -54,19 +67,51 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!loadingMain || !incomingData) return;
+    let current = 13;
+    setProgress(current);
+    const interval = setInterval(() => {
+      current = Math.min(100, current + Math.floor(Math.random() * 15) + 5);
+      setProgress(current);
+      if (current >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          setCardData(incomingData);
+          setIncomingData(null);
+          setLoadingMain(false);
+          setProgress(0);
+        }, 250);
+      }
+    }, 250);
+
+    return () => clearInterval(interval);
+  }, [loadingMain, incomingData]);
+
+
+  const handleCancel = () => {
+    setIncomingData(null);
+    setCardData(null);
+    setPhotoData(null);
+    setLoadingMain(false);
+    setProgress(0);
+    setErrorMessage(null);
+  };
+
   return (
     <main className="w-full h-lvh relative">
-      {!cardData? (
+      {loadingMain ? (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+          <div className="text-lg font-medium">กำลังโหลดข้อมูล...</div>
+          <div className="w-[60%]">
+            <Progress value={progress} className="w-full" />
+          </div>
+        </div>
+      ) : !cardData ? (
         <Home />
       ) : (
-          <Main cardData={cardData} photoData={photoData}/>
+        <Main cardData={cardData} photoData={photoData} onCancel={handleCancel} />
       )}
-      {/* {errorMessage && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded shadow">
-          {errorMessage}
-        </div> */}
-      {/* )} */}
-      
 
       <Footer />
     </main>

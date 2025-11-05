@@ -14,3 +14,7 @@ For Android development, run:
 
 For iOS development, run:
   bun run tauri ios dev
+
+build
+To build the project for production, run:
+  bun tauri build --bundles app
