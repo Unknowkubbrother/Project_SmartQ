@@ -1,8 +1,9 @@
 use pcsc::*;
 use encoding_rs::WINDOWS_874;
 use regex::Regex;
-use std::{error::Error, time::Duration, thread};
+use std::{error::Error, time::Duration, thread}; // <--- Error (Trait) อยู่ตรงนี้
 
+/* --- ส่วนของ Structs, Consts, และ Functions (decode_tis620, ...) ไม่เปลี่ยนแปลง --- */
 #[derive(Clone, Copy, Debug)]
 struct ApduField {
     key: &'static str,
@@ -134,7 +135,22 @@ fn run_loop(ctx: &Context) -> Result<(), Box<dyn Error>> {
 
     let mut states = [ReaderState::new(reader_name.as_c_str(), State::UNAWARE)];
     loop {
-        ctx.get_status_change(Some(Duration::from_secs(1)), &mut states)?;
+        
+        match ctx.get_status_change(Some(Duration::from_secs(1)), &mut states) {
+            Ok(_) => {
+                // Event occurred, proceed
+            }
+            // [FIX] ต้องระบุว่าเป็น Error::Timeout ของ 'pcsc'
+            Err(pcsc::Error::Timeout) => { 
+                // This is normal on macOS, just continue the loop
+                continue; 
+            }
+            Err(e) => {
+                // This is a real error
+                println!("[ระบบ] เกิดข้อผิดพลาดร้ายแรง: {}", e);
+                return Err(e.into()); // Stop the loop
+            }
+        }
 
         for state in &mut states {
             // card inserted
