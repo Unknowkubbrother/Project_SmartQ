@@ -1,9 +1,14 @@
-use pcsc::*;
+use pcsc::{
+    Context, Card, ReaderState, Scope, ShareMode, Protocols, Disposition, MAX_BUFFER_SIZE, Error as PcscError, State,
+};
 use encoding_rs::WINDOWS_874;
 use regex::Regex;
-use std::{error::Error, time::Duration, thread}; // <--- Error (Trait) อยู่ตรงนี้
+use std::error::Error;
+use std::time::Duration;
+use std::thread;
 
-/* --- ส่วนของ Structs, Consts, และ Functions (decode_tis620, ...) ไม่เปลี่ยนแปลง --- */
+type AppResult<T> = Result<T, Box<dyn Error>>;
+
 #[derive(Clone, Copy, Debug)]
 struct ApduField {
     key: &'static str,
@@ -42,7 +47,7 @@ fn convert_date(txt: &str) -> String {
     }
 }
 
-fn select_thai_id(card: &Card) -> Result<(), Box<dyn Error>> {
+fn select_thai_id(card: &Card) -> AppResult<()> {
     let select_applet: [u8; 13] = [
         0x00, 0xA4, 0x04, 0x00, 0x08,
         0xA0, 0x00, 0x00, 0x00, 0x54, 0x48, 0x00, 0x01,
@@ -63,7 +68,7 @@ fn select_thai_id(card: &Card) -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn read_apdu(card: &Card, apdu: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
+fn transmit_and_read_data(card: &Card, apdu: &[u8]) -> AppResult<Vec<u8>> {
     let mut buf = [0; MAX_BUFFER_SIZE];
     let rapdu = card.transmit(apdu, &mut buf)?;
     let (sw1, sw2) = (rapdu[rapdu.len() - 2], rapdu[rapdu.len() - 1]);
@@ -93,18 +98,17 @@ fn parse_field(key: &str, raw: &[u8], gender: &[&str], religion: &[&str]) -> Str
 fn process_card(card: Card, re: &Regex, gender: &[&str], religion: &[&str]) {
     thread::sleep(Duration::from_millis(DELAY_AFTER_CONNECT_MS));
 
-    match select_thai_id(&card) {
-        Ok(_) => println!("✅ เลือกแอปบัตรประชาชนสำเร็จ"),
-        Err(e) => {
-            println!("❌ เลือกแอปไม่สำเร็จ: {}", e);
-            let _ = card.disconnect(Disposition::LeaveCard);
-            thread::sleep(Duration::from_millis(DELAY_AFTER_DISCONNECT_MS));
-            return;
-        }
+    if let Err(e) = select_thai_id(&card) {
+        println!("❌ เลือกแอปไม่สำเร็จ: {}", e);
+        let _ = card.disconnect(Disposition::LeaveCard);
+        thread::sleep(Duration::from_millis(DELAY_AFTER_DISCONNECT_MS));
+        return;
+    } else {
+        println!("✅ เลือกแอปบัตรประชาชนสำเร็จ");
     }
 
     for field in APDU_LIST {
-        match read_apdu(&card, field.apdu) {
+        match transmit_and_read_data(&card, field.apdu) {
             Ok(raw) => {
                 let parsed = parse_field(field.key, &raw, gender, religion);
                 let clean = re.replace_all(&parsed, " ");
@@ -119,7 +123,7 @@ fn process_card(card: Card, re: &Regex, gender: &[&str], religion: &[&str]) {
     thread::sleep(Duration::from_millis(DELAY_AFTER_DISCONNECT_MS));
 }
 
-fn run_loop(ctx: &Context) -> Result<(), Box<dyn Error>> {
+fn run_loop(ctx: &Context) -> AppResult<()> {
     let gender = ["-", "ชาย", "หญิง"];
     let religion = ["-","พุทธ","อิสลาม","คริสต์","พราหมณ์-ฮินดู","ซิกข์","ยิว","เชน",
                     "โซโรอัสเตอร์","บาไฮ","ไม่นับถือศาสนา","ไม่ทราบ"];
@@ -135,41 +139,28 @@ fn run_loop(ctx: &Context) -> Result<(), Box<dyn Error>> {
 
     let mut states = [ReaderState::new(reader_name.as_c_str(), State::UNAWARE)];
     loop {
-        
         match ctx.get_status_change(Some(Duration::from_secs(1)), &mut states) {
-            Ok(_) => {
-                // Event occurred, proceed
-            }
-            // [FIX] ต้องระบุว่าเป็น Error::Timeout ของ 'pcsc'
-            Err(pcsc::Error::Timeout) => { 
-                // This is normal on macOS, just continue the loop
-                continue; 
-            }
+            Ok(_) => {}
+            Err(PcscError::Timeout) => continue, // normal timeout on some platforms
             Err(e) => {
-                // This is a real error
                 println!("[ระบบ] เกิดข้อผิดพลาดร้ายแรง: {}", e);
-                return Err(e.into()); // Stop the loop
+                return Err(e.into());
             }
         }
 
         for state in &mut states {
-            // card inserted
-            if state.event_state().contains(State::PRESENT)
-                && !state.current_state().contains(State::PRESENT)
-            {
+            let event = state.event_state();
+            let current = state.current_state();
+
+            if event.contains(State::PRESENT) && !current.contains(State::PRESENT) {
                 println!("\n[ระบบ] ตรวจพบบัตร → เริ่มอ่านข้อมูล...");
                 thread::sleep(Duration::from_millis(DELAY_CONNECT_MS));
-
-                if let Ok(card) = ctx.connect(reader_name.as_c_str(), ShareMode::Shared, Protocols::ANY) {
-                    process_card(card, &re, &gender, &religion);
-                } else {
-                    println!("❌ [ระบบ] เชื่อมต่อบัตรไม่สำเร็จ (อาจจะยังไม่เสถียร)");
+                let cs = reader_name.as_c_str();
+                match ctx.connect(cs, ShareMode::Shared, Protocols::ANY) {
+                    Ok(card) => process_card(card, &re, &gender, &religion),
+                    Err(e) => println!("❌ [ระบบ] เชื่อมต่อบัตรไม่สำเร็จ: {}", e),
                 }
-            }
-            // card removed
-            else if state.event_state().contains(State::EMPTY)
-                && state.current_state().contains(State::PRESENT)
-            {
+            } else if event.contains(State::EMPTY) && current.contains(State::PRESENT) {
                 println!("\n[ระบบ] บัตรถูกถอดออกแล้ว");
             }
         }
@@ -178,7 +169,7 @@ fn run_loop(ctx: &Context) -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> AppResult<()> {
     let ctx = Context::establish(Scope::User)?;
     run_loop(&ctx)
 }
