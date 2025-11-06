@@ -1,6 +1,8 @@
+import { Link } from 'react-router-dom';
 import { useQueue } from '@/contexts/QueueContext';
 import { Card } from '@/components/ui/card';
-import { Radio, Clock, ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Radio, Clock, ArrowRight , ArrowLeftFromLine } from 'lucide-react';
 
 const DisplayBoard = () => {
   const { queues, currentQueue } = useQueue();
@@ -94,6 +96,13 @@ const DisplayBoard = () => {
             </div>
           </Card>
         )}
+
+        {/* Choice Navigator Link */}
+        <div className="mt-8 text-center">
+          <Link to="/start">
+            <Button variant="outline"><ArrowLeftFromLine /> กลับไปเลือกบริการ</Button>
+          </Link>
+        </div>
 
         {/* Footer Info */}
         <div className="mt-12 text-center">

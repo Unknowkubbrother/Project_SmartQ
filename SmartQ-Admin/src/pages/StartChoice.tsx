@@ -35,7 +35,7 @@ const StartChoice: React.FC = () => {
           </Link>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col items-center gap-2">
           <Link to="/setup">
             <Button variant="ghost">เปลี่ยน URL</Button>
           </Link>
