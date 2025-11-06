@@ -1,3 +1,5 @@
 fastapi
 uvicorn
 gtts
+python-dotenv
+mysql-connector-python

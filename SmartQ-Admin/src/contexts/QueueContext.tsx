@@ -105,7 +105,7 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
     if (wsUrl.startsWith('http://')) wsUrl = wsUrl.replace('http://', 'ws://');
     else if (wsUrl.startsWith('https://')) wsUrl = wsUrl.replace('https://', 'wss://');
     else wsUrl = 'ws://' + wsUrl;
-  wsUrl = wsUrl + '/ws' + `?role=${role}`;
+  wsUrl = wsUrl + '/api/ws' + `?role=${role}`;
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -214,7 +214,7 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
   const addQueue = async (name: string) => {
     if (backendUrl) {
       try {
-        const endpoint = backendUrl.replace(/\/$/, '') + '/enqueue';
+        const endpoint = backendUrl.replace(/\/$/, '') + '/api/enqueue';
         await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -241,7 +241,7 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
   const callNextQueue = async () => {
     if (backendUrl) {
       try {
-        const endpoint = backendUrl.replace(/\/$/, '') + '/dequeue';
+        const endpoint = backendUrl.replace(/\/$/, '') + '/api/dequeue';
         const res = await fetch(endpoint, { method: 'POST' });
         const data = await res.json();
         if (data && data.item) {
@@ -278,7 +278,7 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
     if (currentQueue) {
       if (backendUrl) {
         // ask backend to reannounce current audio to displays
-        fetch(backendUrl.replace(/\/$/, '') + '/reannounce', { method: 'POST' }).catch(e => console.error('reannounce failed', e));
+        fetch(backendUrl.replace(/\/$/, '') + '/api/reannounce', { method: 'POST' }).catch(e => console.error('reannounce failed', e));
       } else {
         // fallback: no backend, use BroadcastChannel to signal other tabs
         channel?.postMessage({ type: 'CALL_QUEUE', payload: currentQueue });
@@ -289,7 +289,7 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
   const setMute = async (muted: boolean) => {
     if (!backendUrl) return;
     try {
-      await fetch(backendUrl.replace(/\/$/, '') + '/mute', {
+      await fetch(backendUrl.replace(/\/$/, '') + '/api/mute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ muted }),
@@ -304,7 +304,7 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
     if (backendUrl) {
       const qToComplete = currentQueue && currentQueue.id === id ? currentQueue : queues.find(q => q.id === id);
       if (qToComplete) {
-        fetch(backendUrl.replace(/\/$/, '') + '/complete', {
+        fetch(backendUrl.replace(/\/$/, '') + '/api/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ Q_number: qToComplete.queueNumber, FULLNAME_TH: qToComplete.customerName, service: qToComplete.service || '' }),

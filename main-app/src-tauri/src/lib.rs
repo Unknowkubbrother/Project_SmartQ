@@ -8,6 +8,8 @@ fn check_reader() -> Result<Option<String>, String> {
     idcard_reader::get_current_reader()
 }
 
+
+
 // #[cfg(mobile)]
 // #[tauri::mobile_entry_point]
 // pub fn run(app_handle: idcard_reader::AppHandle) {

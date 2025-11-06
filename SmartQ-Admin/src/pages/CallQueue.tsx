@@ -16,7 +16,7 @@ const CallQueue = () => {
     if (!backendUrl) return;
     const fetchServices = async () => {
       try {
-        const res = await fetch(backendUrl.replace(/\/$/, '') + '/services');
+        const res = await fetch(backendUrl.replace(/\/$/, '') + '/api/services');
         if (res.ok) {
           const data = await res.json();
           setServices(data);

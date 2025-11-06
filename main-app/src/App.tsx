@@ -7,6 +7,9 @@ import Home from "@/pages/Home";
 import Footer from "@/components/ui/Footer";
 import Main from "@/pages/Main";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "./components/ui/button";
+import axios from "axios";
+import Swal from "sweetalert2";
 
 function App() {
   const [cardData, setCardData] = useState<ThaiIDCardData | null>(null);
@@ -23,6 +26,9 @@ function App() {
   const [backendError, setBackendError] = useState<string | null>(null);
   const [backendConnected, setBackendConnected] = useState(false);
   const [readerReady, setReaderReady] = useState<boolean>(false);
+  const [username, setUsername] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   useEffect(() => {
   let unlistenData: UnlistenFn | null = null;
@@ -112,7 +118,7 @@ function App() {
     setBackendConnecting(true);
     setBackendError(null);
     try {
-      const endpoint = url.replace(/\/$/, '') + '/services';
+      const endpoint = url.replace(/\/$/, '') + '/api'+ '/services';
       const res = await fetch(endpoint, { method: 'GET' });
       if (!res.ok) throw new Error('ไม่สามารถเชื่อมต่อ backend');
       await res.json();
@@ -158,20 +164,50 @@ function App() {
     setErrorMessage(null);
   };
 
+  const handleLogin = async () => {
+    try {
+      const response = await axios.post(`${backendUrl}/api/login`, {
+        username,
+        password
+      });
+      if (response.data.user) {
+        Swal.fire({
+          icon: 'success',
+          title: 'เข้าสู่ระบบสำเร็จ',
+          confirmButtonText: 'ตกลง'
+        });
+        setIsAuthenticated(true);
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+          confirmButtonText: 'ตกลง'
+        });
+      }
+    } catch (error) {
+      console.error('Login failed', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์',
+        confirmButtonText: 'ตกลง'
+      });
+    }
+  }
+
   return (
     <main className="w-full h-lvh relative">
       {/* Modal: require backend URL and reader ready before using app */}
       {(!backendConnected || !readerReady) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-white rounded-lg p-6 w-[420px]">
-            <h2 className="text-lg font-semibold mb-4">ตั้งค่า Backend และตรวจสอบเครื่องอ่านบัตร</h2>
+            <h2 className="text-lg font-semibold mb-4">ตั้งค่า Server และตรวจสอบเครื่องอ่านบัตร</h2>
             {!backendConnected ? (
               <div className="space-y-2">
-                <label className="text-sm">Backend URL</label>
+                <label className="text-sm">Server URL</label>
                 <input value={backendInput} onChange={(e) => setBackendInput(e.target.value)} className="w-full border px-3 py-2 rounded" placeholder="http://192.168.0.158:8000" />
                 <div className="flex items-center gap-2 mt-3">
-                  <button className="btn btn-primary" onClick={() => connectBackend(backendInput)} disabled={backendConnecting}>{backendConnecting ? 'กำลังเชื่อม...' : 'เชื่อมต่อ'}</button>
-                  <button className="btn" onClick={() => { setBackendInput(''); setBackendError(null); }}>ล้าง</button>
+                  <Button className="btn btn-primary" onClick={() => connectBackend(backendInput)} disabled={backendConnecting}>{backendConnecting ? 'กำลังเชื่อม...' : 'เชื่อมต่อ'}</Button>
+                  <Button className="btn" onClick={() => { setBackendInput(''); setBackendError(null); }}>ล้าง</Button>
                 </div>
                 {backendError && <div className="text-sm text-red-600 mt-2">{backendError}</div>}
                 <div className="text-sm text-muted-foreground mt-2">ต้องระบุ URL ของ backend ก่อนใช้งาน (ข้อมูลจะไม่ถูกบันทึก)</div>
@@ -186,17 +222,73 @@ function App() {
           </div>
         </div>
       )}
-      {loadingMain ? (
+
+
+      {
+        (!isAuthenticated && backendConnected && readerReady) && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="bg-white rounded-lg p-6 w-[400px]">
+              <h2 className="text-lg font-semibold mb-4">เข้าสู่ระบบ</h2>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm">ชื่อผู้ใช้</label>
+                  <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full border px-3 py-2 rounded" />
+                </div>
+                <div>
+                  <label className="text-sm">รหัสผ่าน</label>
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border px-3 py-2 rounded" />
+                </div>
+                <div className="flex justify-end">
+                  <Button className="btn btn-primary" onClick={() => handleLogin()}>เข้าสู่ระบบ</Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* This is the main application content logic.
+        It's now re-ordered to prioritize checking for cardData *after* loading,
+        and to ensure Home is only shown when all prerequisites are met.
+      */}
+      {loadingMain && backendConnected && readerReady && isAuthenticated ? (
+        // 1. Show loading screen if we are loading (and all prereqs are met)
         <div className="w-full h-full flex flex-col items-center justify-center gap-4">
           <div className="text-lg font-medium">กำลังโหลดข้อมูล...</div>
           <div className="w-[60%]">
             <Progress value={progress} className="w-full" />
           </div>
         </div>
-      ) : !cardData ? (
-        <Home />
+      ) : cardData ? (
+        // 2. If NOT loading, and we HAVE cardData, show Main or an Error
+        backendConnected && isAuthenticated && readerReady ? (
+          // 2a. All prereqs met: Show Main
+          <Main
+            cardData={cardData}
+            photoData={photoData}
+            onCancel={handleCancel}
+            backendUrl={backendUrl}
+          />
+        ) : (
+          // 2b. Prereqs failed (e.g., disconnect): Show Warning
+          <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-center">
+            <div className="text-lg font-semibold">⚠️ ไม่สามารถแสดงข้อมูลได้</div>
+            {!backendConnected && <div>❌ การเชื่อมต่อ Backend หลุด</div>}
+            {!isAuthenticated && <div>🔒 ออกจากระบบแล้ว</div>}
+            {!readerReady && <div>💳 การเชื่อมต่อเครื่องอ่านบัตรหลุด</div>}
+            <div className="text-sm text-gray-500 mt-2">กรุณาตรวจสอบและลองอีกครั้ง (อาจจะต้องเริ่มใหม่)</div>
+          </div>
+        )
       ) : (
-        <Main cardData={cardData} photoData={photoData} onCancel={handleCancel} backendUrl={backendUrl} />
+        // 3. If NOT loading, and NO cardData...
+        backendConnected && isAuthenticated && readerReady ? (
+          // 3a. All prereqs met: Show Home (waiting for card)
+          <Home />
+        ) : (
+          // 3b. Prereqs NOT met: Show nothing (null)
+          // The modals are handling the UI in this state.
+          null
+        )
       )}
 
       <Footer />

@@ -33,7 +33,7 @@ function Main({ cardData, photoData, onCancel, backendUrl }: { cardData: ThaiIDC
     }).then((result : any) => {
       if (result.isConfirmed) {
   const endpointBase = (backendUrl && backendUrl.length > 0) ? backendUrl.replace(/\/$/, '') : 'http://localhost:8000';
-  axios.post(endpointBase + '/enqueue', { FULLNAME_TH: cardData?.FULLNAME_TH, service: selectedService })
+  axios.post(endpointBase + '/api/enqueue', { FULLNAME_TH: cardData?.FULLNAME_TH, service: selectedService })
           .then((_ : any) => {
             Swal.fire({
               title: "สำเร็จ!",

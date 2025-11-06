@@ -1,29 +1,16 @@
+
 from collections import deque
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from src.models import EnqueueItem
 from gtts import gTTS
 import base64, io
 from typing import List
+from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import APIRouter
 
-class EnqueueItem(BaseModel):
-    FULLNAME_TH: str
-    service: str
-
-app = FastAPI(title="SmartQ Voice Backend", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+queue_router = APIRouter()
 
 currentQ_number = 0
 queue = deque()
-
 
 # ---------------- Connection Manager ----------------
 class ConnectionManager:
@@ -90,73 +77,20 @@ serviceTypes = {
     "contact_staff": "ติดต่อเจ้าหน้าที่"
   };
 
-# ---------------- HTML for Test ----------------
-html = """
-<!DOCTYPE html>
-<html>
-<head><title>SmartQ Voice</title></head>
-<body>
-  <h2>🔊 Smart Queue System with Voice</h2>
-  <p id="status">Connecting...</p>
-  <ul id="queue"></ul>
-  <input id="fullname" placeholder="ชื่อผู้ใช้..." />
-  <button onclick="enqueue()">เพิ่มคิว</button>
-  <button onclick="dequeue()">เรียกคิวถัดไป</button>
-
-  <script>
-    const ws = new WebSocket("ws://192.168.0.158:8000/ws");
-
-    ws.onmessage = async (event) => {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "status") {
-            document.getElementById("status").textContent =
-                `🟢 Online: ${msg.online} | Queue: ${msg.queue_length}`;
-        } else if (msg.type === "queue_update") {
-            const list = document.getElementById("queue");
-            list.innerHTML = "";
-            msg.queue.forEach(q => {
-                const li = document.createElement("li");
-                li.textContent = `${q.Q_number} - ${q.FULLNAME_TH} (${q.service})`;
-                list.appendChild(li);
-            });
-        } else if (msg.type === "audio") {
-            const audioBlob = await fetch(`data:audio/mp3;base64,${msg.data}`).then(res => res.blob());
-            const audio = new Audio(URL.createObjectURL(audioBlob));
-            audio.play();
-        }
-    };
-
-    async function enqueue() {
-        const name = document.getElementById("fullname").value;
-        await fetch("/enqueue", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ FULLNAME_TH: name })
-        });
-    }
-
-    async function dequeue() {
-        await fetch("/dequeue", { method: "POST" });
-    }
-  </script>
-</body>
-</html>
-"""
-
-@app.get("/")
+@queue_router.get("/")
 def index():
     return {"message": "SmartQ Voice Backend is running."}
     # return HTMLResponse(html)
 
 
-@app.get('/services')
+@queue_router.get('/services')
 def get_services():
     # return mapping of service key to label
     return serviceTypes
 
 
 # ---------------- Queue Functions ----------------
-@app.post("/enqueue")
+@queue_router.post("/enqueue")
 async def enqueue_item(item: EnqueueItem):
     global currentQ_number
     currentQ_number += 1
@@ -167,7 +101,7 @@ async def enqueue_item(item: EnqueueItem):
     return {"message": "Item enqueued", "item": data}
 
 
-@app.post("/dequeue")
+@queue_router.post("/dequeue")
 async def dequeue_item():
     # Auto-complete previous current if exists
     if manager.current:
@@ -211,7 +145,7 @@ async def dequeue_item():
     return {"message": "Queue is empty"}
 
 
-@app.post("/mute")
+@queue_router.post("/mute")
 async def set_mute(payload: dict):
     # payload: { muted: bool }
     try:
@@ -223,7 +157,7 @@ async def set_mute(payload: dict):
     return {"message": "mute updated", "muted": manager.muted}
 
 
-@app.post('/reannounce')
+@queue_router.post('/reannounce')
 async def reannounce_current():
     # Re-send the current audio to display clients
     if not manager.current:
@@ -234,7 +168,7 @@ async def reannounce_current():
     return {"message": "muted or no audio"}
 
 
-@app.post("/complete")
+@queue_router.post("/complete")
 async def complete_item(payload: dict):
     # Expected payload: { "Q_number": int, "FULLNAME_TH": str, "service": str }
     try:
@@ -265,7 +199,7 @@ async def complete_item(payload: dict):
 
 
 # ---------------- WebSocket ----------------
-@app.websocket("/ws")
+@queue_router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     # read role from query params
     role = websocket.query_params.get('role', 'client')

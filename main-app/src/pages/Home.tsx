@@ -3,8 +3,8 @@ export default function Home() {
     <main className="w-full h-full">
         <header className="w-full justify-center items-center flex flex-col p-4">
             <img src="./logo.png" alt="" width={100} height={100} />
-            <h1 className="text-2xl">จุดบริการด้วยตนเอง</h1>
-            <h2 className="text-[12px]">โรงพยาบาลส่งเสริมสุขภาพตำบลคลองบุหรี่</h2>
+            <h1 className="text-4xl">จุดรับบัตรคิว</h1>
+            <h2 className="text-2xl mt-5">โรงพยาบาลส่งเสริมสุขภาพตำบลคลองบุหรี่</h2>
         </header>
 
         <div className="w-full h-5"></div>
