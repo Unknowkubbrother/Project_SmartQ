@@ -32,6 +32,9 @@ class ConnectionManager:
         self.active_connections: List[dict] = []
         self.muted: bool = False
         self.history: List[dict] = []
+        # currently calling item and its pre-generated audio (base64)
+        self.current: dict | None = None
+        self.current_audio_base64: str | None = None
 
     async def connect(self, websocket: WebSocket, role: str = 'client'):
         await websocket.accept()
@@ -70,6 +73,8 @@ class ConnectionManager:
         # send queue_update, status and history to a single websocket
         try:
             await websocket.send_json({"type": "queue_update", "queue": list(queue)})
+            # send current item if exists
+            await websocket.send_json({"type": "current", "item": self.current})
             await websocket.send_json({"type": "history", "history": self.history})
             await websocket.send_json({"type": "status", "online": len(self.active_connections), "queue_length": len(queue), "processed_count": len(self.history), "muted": self.muted})
         except Exception:
@@ -164,6 +169,14 @@ async def enqueue_item(item: EnqueueItem):
 
 @app.post("/dequeue")
 async def dequeue_item():
+    # Auto-complete previous current if exists
+    if manager.current:
+        prev = manager.current
+        manager.history.insert(0, {"Q_number": prev['Q_number'], "FULLNAME_TH": prev['FULLNAME_TH'], "service": prev.get('service', '')})
+        if len(manager.history) > 50:
+            manager.history = manager.history[:50]
+        await manager.broadcast({"type": "complete", "Q_number": prev['Q_number']})
+
     if queue:
         item = queue.popleft()
         text = f"คิวหมายเลข {item['Q_number']} {item['FULLNAME_TH']} กรุณารอที่ {item['service']}"
@@ -172,18 +185,29 @@ async def dequeue_item():
         tts.write_to_fp(fp)
         fp.seek(0)
         audio_base64 = base64.b64encode(fp.read()).decode("utf-8")
-        # Prepare audio and send to displays (if not muted)
+
+        # store current and its audio so we can re-announce later
+        manager.current = item
+        manager.current_audio_base64 = audio_base64
+
+        # send audio to displays (if not muted)
         if not manager.muted:
             await manager.broadcast({"type": "audio", "data": audio_base64}, role='display')
 
         # send current item to everyone (so callers can show calling state)
         await manager.broadcast({"type": "current", "item": item})
 
-        # broadcast queue update (history is not updated until item is completed)
+        # broadcast queue update
         await manager.broadcast({"type": "queue_update", "queue": list(queue)})
         await manager.broadcast_status()
 
         return {"message": "Item dequeued", "item": item}
+
+    # if no item to dequeue, ensure current cleared and notify
+    manager.current = None
+    manager.current_audio_base64 = None
+    await manager.broadcast({"type": "current", "item": None})
+    await manager.broadcast_status()
     return {"message": "Queue is empty"}
 
 
@@ -197,6 +221,17 @@ async def set_mute(payload: dict):
     manager.muted = muted
     await manager.broadcast_status()
     return {"message": "mute updated", "muted": manager.muted}
+
+
+@app.post('/reannounce')
+async def reannounce_current():
+    # Re-send the current audio to display clients
+    if not manager.current:
+        return {"message": "no current item"}
+    if manager.current_audio_base64 and not manager.muted:
+        await manager.broadcast({"type": "audio", "data": manager.current_audio_base64}, role='display')
+        return {"message": "reannounced"}
+    return {"message": "muted or no audio"}
 
 
 @app.post("/complete")
@@ -219,6 +254,12 @@ async def complete_item(payload: dict):
     await manager.broadcast({"type": "complete", "Q_number": qnum})
     await manager.broadcast({"type": "history", "history": manager.history})
     await manager.broadcast_status()
+
+    # if the completed item was the current one, clear current and notify
+    if manager.current and manager.current.get('Q_number') == qnum:
+        manager.current = None
+        manager.current_audio_base64 = None
+        await manager.broadcast({"type": "current", "item": None})
 
     return {"message": "item completed", "Q_number": qnum}
 

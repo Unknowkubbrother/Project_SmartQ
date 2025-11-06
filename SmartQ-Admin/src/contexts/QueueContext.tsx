@@ -134,17 +134,21 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
             // update server status (include processed_count when provided by server)
             setServerStatus({ online: msg.online, queue_length: msg.queue_length, muted: msg.muted, processed_count: msg.processed_count });
           } else if (msg.type === 'current') {
-            // current item being called
+            // current item being called (msg.item may be null)
             const it = msg.item;
-            const mappedCurrent: Queue = {
-              id: String(it.Q_number),
-              queueNumber: it.Q_number,
-              customerName: it.FULLNAME_TH,
-              status: 'calling',
-              timestamp: new Date(),
-              service: it.service,
-            };
-            setCurrentQueue(mappedCurrent);
+            if (!it) {
+              setCurrentQueue(null);
+            } else {
+              const mappedCurrent: Queue = {
+                id: String(it.Q_number),
+                queueNumber: it.Q_number,
+                customerName: it.FULLNAME_TH,
+                status: 'calling',
+                timestamp: new Date(),
+                service: it.service,
+              };
+              setCurrentQueue(mappedCurrent);
+            }
           } else if (msg.type === 'complete') {
             // a completed item was recorded on server
             const qnum = msg.Q_number;
@@ -272,8 +276,13 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
 
   const callAgain = () => {
     if (currentQueue) {
-      // no server endpoint for re-announcing; use BroadcastChannel for local tabs
-      channel?.postMessage({ type: 'CALL_QUEUE', payload: currentQueue });
+      if (backendUrl) {
+        // ask backend to reannounce current audio to displays
+        fetch(backendUrl.replace(/\/$/, '') + '/reannounce', { method: 'POST' }).catch(e => console.error('reannounce failed', e));
+      } else {
+        // fallback: no backend, use BroadcastChannel to signal other tabs
+        channel?.postMessage({ type: 'CALL_QUEUE', payload: currentQueue });
+      }
     }
   };
 
