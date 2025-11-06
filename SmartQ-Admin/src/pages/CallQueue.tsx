@@ -101,22 +101,14 @@ const CallQueue = () => {
                 </div>
 
                 {/* Counter */}
+                {currentQueue.service && (
                 <div className="text-center">
                   <div className="inline-flex items-center gap-2 px-6 py-3 bg-primary/10 rounded-lg">
-                    <span className="text-muted-foreground">ช่องบริการ</span>
-                    <span className="text-2xl font-bold text-primary">{currentQueue.counter || 1}</span>
+                    <span className="text-muted-foreground">บริการ</span>
+                    <span className="text-2xl font-bold text-primary">{currentQueue.service}</span>
                   </div>
                 </div>
-
-                {/* Service */}
-                {currentQueue.service && (
-                  <div className="text-center">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-secondary/10 rounded-lg">
-                      <span className="text-sm text-muted-foreground">บริการ</span>
-                      <span className="text-sm font-semibold text-primary">{currentQueue.service}</span>
-                    </div>
-                  </div>
-                )}
+              )}
 
                 {/* Speaking Indicator */}
                 {speaking && (

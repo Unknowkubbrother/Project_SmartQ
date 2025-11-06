@@ -47,20 +47,20 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
   const [history, setHistory] = useState<ServerHistoryItem[]>([]);
   const [serverStatus, setServerStatus] = useState<{ online: number; queue_length: number; muted?: boolean; processed_count?: number } | null>(null);
 
-  // If no backend configured, initialize with mock data for offline/dev
-  useEffect(() => {
-    if (backendUrl) return;
-    const mockQueues: Queue[] = [
-      { id: '1', queueNumber: 1, customerName: 'สมชาย ใจดี', status: 'completed', timestamp: new Date(), counter: 1 },
-      { id: '2', queueNumber: 2, customerName: 'สมหญิง รักสุข', status: 'completed', timestamp: new Date(), counter: 1 },
-      { id: '3', queueNumber: 3, customerName: 'วิชัย มั่นคง', status: 'waiting', timestamp: new Date() },
-      { id: '4', queueNumber: 4, customerName: 'สุดา สวยงาม', status: 'waiting', timestamp: new Date() },
-      { id: '5', queueNumber: 5, customerName: 'ประเสริฐ ดีมาก', status: 'waiting', timestamp: new Date() },
-      { id: '6', queueNumber: 6, customerName: 'มานะ สู้งาน', status: 'waiting', timestamp: new Date() },
-      { id: '7', queueNumber: 7, customerName: 'วรรณา สดใส', status: 'waiting', timestamp: new Date() },
-    ];
-    setQueues(mockQueues);
-  }, [backendUrl, location.pathname, serverStatus?.muted]);
+  // // If no backend configured, initialize with mock data for offline/dev
+  // useEffect(() => {
+  //   if (backendUrl) return;
+  //   const mockQueues: Queue[] = [
+  //     { id: '1', queueNumber: 1, customerName: 'สมชาย ใจดี', status: 'completed', timestamp: new Date(), counter: 1 },
+  //     { id: '2', queueNumber: 2, customerName: 'สมหญิง รักสุข', status: 'completed', timestamp: new Date(), counter: 1 },
+  //     { id: '3', queueNumber: 3, customerName: 'วิชัย มั่นคง', status: 'waiting', timestamp: new Date() },
+  //     { id: '4', queueNumber: 4, customerName: 'สุดา สวยงาม', status: 'waiting', timestamp: new Date() },
+  //     { id: '5', queueNumber: 5, customerName: 'ประเสริฐ ดีมาก', status: 'waiting', timestamp: new Date() },
+  //     { id: '6', queueNumber: 6, customerName: 'มานะ สู้งาน', status: 'waiting', timestamp: new Date() },
+  //     { id: '7', queueNumber: 7, customerName: 'วรรณา สดใส', status: 'waiting', timestamp: new Date() },
+  //   ];
+  //   setQueues(mockQueues);
+  // }, [backendUrl, location.pathname, serverStatus?.muted]);
 
   // Listen to BroadcastChannel messages
   useEffect(() => {
