@@ -28,26 +28,52 @@ queue = deque()
 # ---------------- Connection Manager ----------------
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        # store tuples of (websocket, role)
+        self.active_connections: List[dict] = []
+        self.muted: bool = False
+        self.history: List[dict] = []
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, role: str = 'client'):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        self.active_connections.append({ 'ws': websocket, 'role': role })
+        await self.send_initial_state(websocket)
         await self.broadcast_status()
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        self.active_connections = [c for c in self.active_connections if c['ws'] != websocket]
 
-    async def broadcast(self, message: dict):
-        for connection in self.active_connections:
-            await connection.send_json(message)
+    async def broadcast(self, message: dict, role: str | None = None):
+        # if role is provided, only send to connections with that role
+        for connection in list(self.active_connections):
+            try:
+                if role and connection.get('role') != role:
+                    continue
+                await connection['ws'].send_json(message)
+            except Exception:
+                # ignore send errors and remove connection
+                try:
+                    connection['ws'].close()
+                except Exception:
+                    pass
+                self.disconnect(connection['ws'])
 
     async def broadcast_status(self):
         await self.broadcast({
             "type": "status",
             "online": len(self.active_connections),
             "queue_length": len(queue),
+            "processed_count": len(self.history),
+            "muted": self.muted,
         })
+
+    async def send_initial_state(self, websocket: WebSocket):
+        # send queue_update, status and history to a single websocket
+        try:
+            await websocket.send_json({"type": "queue_update", "queue": list(queue)})
+            await websocket.send_json({"type": "history", "history": self.history})
+            await websocket.send_json({"type": "status", "online": len(self.active_connections), "queue_length": len(queue), "processed_count": len(self.history), "muted": self.muted})
+        except Exception:
+            pass
 
 manager = ConnectionManager()
 
@@ -118,6 +144,12 @@ def index():
     # return HTMLResponse(html)
 
 
+@app.get('/services')
+def get_services():
+    # return mapping of service key to label
+    return serviceTypes
+
+
 # ---------------- Queue Functions ----------------
 @app.post("/enqueue")
 async def enqueue_item(item: EnqueueItem):
@@ -140,9 +172,14 @@ async def dequeue_item():
         tts.write_to_fp(fp)
         fp.seek(0)
         audio_base64 = base64.b64encode(fp.read()).decode("utf-8")
+        # Prepare audio and send to displays (if not muted)
+        if not manager.muted:
+            await manager.broadcast({"type": "audio", "data": audio_base64}, role='display')
 
-        # ส่งเสียงให้ทุกคน
-        await manager.broadcast({"type": "audio", "data": audio_base64})
+        # send current item to everyone (so callers can show calling state)
+        await manager.broadcast({"type": "current", "item": item})
+
+        # broadcast queue update (history is not updated until item is completed)
         await manager.broadcast({"type": "queue_update", "queue": list(queue)})
         await manager.broadcast_status()
 
@@ -150,13 +187,51 @@ async def dequeue_item():
     return {"message": "Queue is empty"}
 
 
+@app.post("/mute")
+async def set_mute(payload: dict):
+    # payload: { muted: bool }
+    try:
+        muted = bool(payload.get('muted', True))
+    except Exception:
+        muted = True
+    manager.muted = muted
+    await manager.broadcast_status()
+    return {"message": "mute updated", "muted": manager.muted}
+
+
+@app.post("/complete")
+async def complete_item(payload: dict):
+    # Expected payload: { "Q_number": int, "FULLNAME_TH": str, "service": str }
+    try:
+        qnum = int(payload.get('Q_number'))
+    except Exception:
+        return {"error": "missing or invalid Q_number"}
+
+    fullname = payload.get('FULLNAME_TH', 'Unknown')
+    service = payload.get('service', '')
+
+    # add to history as completed
+    manager.history.insert(0, {"Q_number": qnum, "FULLNAME_TH": fullname, "service": service})
+    if len(manager.history) > 50:
+        manager.history = manager.history[:50]
+
+    # notify clients about completion and updated history/status
+    await manager.broadcast({"type": "complete", "Q_number": qnum})
+    await manager.broadcast({"type": "history", "history": manager.history})
+    await manager.broadcast_status()
+
+    return {"message": "item completed", "Q_number": qnum}
+
+
 # ---------------- WebSocket ----------------
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+    # read role from query params
+    role = websocket.query_params.get('role', 'client')
+    await manager.connect(websocket, role=role)
     try:
-        await websocket.send_json({"type": "queue_update", "queue": list(queue)})
         while True:
+            # We don't expect messages from clients in this simple protocol, just keep the connection open
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)

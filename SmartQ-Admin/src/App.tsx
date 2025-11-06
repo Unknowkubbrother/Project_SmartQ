@@ -28,14 +28,14 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <BackendProvider>
-        <QueueProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            {isLoading ? (
-              <SplashScreen />
-            ) : (
-              <BrowserRouter>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          {isLoading ? (
+            <SplashScreen />
+          ) : (
+            <BrowserRouter>
+              <QueueProvider>
                 <Routes>
                   {/* Setup flow */}
                   <Route path="/setup" element={<BackendSetup />} />
@@ -49,10 +49,10 @@ const App = () => {
                   {/* Catch-all */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
-              </BrowserRouter>
-            )}
-          </TooltipProvider>
-        </QueueProvider>
+              </QueueProvider>
+            </BrowserRouter>
+          )}
+        </TooltipProvider>
       </BackendProvider>
     </QueryClientProvider>
   );

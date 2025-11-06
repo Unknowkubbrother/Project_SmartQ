@@ -1,44 +1,56 @@
 import { useQueue } from '@/contexts/QueueContext';
-import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
+import { useBackend } from '@/contexts/BackendContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PhoneCall, RotateCcw, User, Hash, CheckCircle, Volume2, VolumeX } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const CallQueue = () => {
-  const { currentQueue, callNextQueue, callAgain, completeQueue } = useQueue();
-  const { speak, cancel, speaking } = useSpeechSynthesis();
-
+  const { currentQueue, callNextQueue, callAgain, completeQueue, serverStatus, setMute, history } = useQueue();
+  const { backendUrl } = useBackend();
+  const [services, setServices] = useState<Record<string, string> | null>(null);
+  
   useEffect(() => {
-    if (currentQueue) {
-      const message = `เชิญหมายเลข ${currentQueue.queueNumber} คุณ${currentQueue.customerName} กรุณาที่ช่องบริการ ${currentQueue.counter || 1}`;
-      speak(message);
-    }
-  }, [currentQueue?.id]);
+    if (!backendUrl) return;
+    const fetchServices = async () => {
+      try {
+        const res = await fetch(backendUrl.replace(/\/$/, '') + '/services');
+        if (res.ok) {
+          const data = await res.json();
+          setServices(data);
+        }
+      } catch (e) {
+        console.error('Failed to fetch services', e);
+      }
+    };
+    fetchServices();
+  }, [backendUrl]);
+  const speaking = false;
 
   const handleCallNext = () => {
     callNextQueue();
   };
 
   const handleCallAgain = () => {
-    if (currentQueue) {
-      const message = `เชิญหมายเลข ${currentQueue.queueNumber} คุณ${currentQueue.customerName} กรุณาที่ช่องบริการ ${currentQueue.counter || 1}`;
-      speak(message);
-    }
+    // Re-announce handled locally via BroadcastChannel; server has no re-announce endpoint
     callAgain();
   };
 
   const handleComplete = () => {
     if (currentQueue) {
       completeQueue(currentQueue.id);
-      cancel();
     }
   };
 
   const handleStopSpeech = () => {
-    cancel();
+    // nothing to stop locally; server audio is played only on display
+  };
+
+  const toggleMute = async () => {
+    if (!setMute || !serverStatus) return;
+    await setMute(!serverStatus.muted);
   };
 
   return (
@@ -62,7 +74,7 @@ const CallQueue = () => {
               </Badge>
             </div>
 
-            {currentQueue ? (
+        {currentQueue ? (
               <div className="space-y-6">
                 <div className="flex items-center justify-center gap-8">
                   {/* Queue Number */}
@@ -95,6 +107,16 @@ const CallQueue = () => {
                     <span className="text-2xl font-bold text-primary">{currentQueue.counter || 1}</span>
                   </div>
                 </div>
+
+                {/* Service */}
+                {currentQueue.service && (
+                  <div className="text-center">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-secondary/10 rounded-lg">
+                      <span className="text-sm text-muted-foreground">บริการ</span>
+                      <span className="text-sm font-semibold text-primary">{currentQueue.service}</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Speaking Indicator */}
                 {speaking && (
@@ -157,17 +179,44 @@ const CallQueue = () => {
               </Button>
             </Link>
 
-            {speaking && (
-              <Button
-                onClick={handleStopSpeech}
-                variant="outline"
-                size="sm"
-              >
-                <VolumeX className="w-4 h-4 mr-2" />
-                หยุดเสียง
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={toggleMute}>
+                {serverStatus?.muted ? (
+                  <>
+                    <VolumeX className="w-4 h-4 mr-2" /> ปิดเสียง
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="w-4 h-4 mr-2" /> เสียงเปิด
+                  </>
+                )}
               </Button>
-            )}
+            </div>
           </div>
+
+          {/* Available services from backend */}
+          {services && Object.keys(services).length > 0 && (
+            <Card className="mt-6 p-4">
+              <h3 className="font-semibold mb-2">บริการที่มี</h3>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(services).map(([key, label]) => (
+                  <Badge key={key} className="px-3 py-1" variant="outline">{label}</Badge>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Recent history from server */}
+          {history && history.length > 0 && (
+            <Card className="mt-6 p-4">
+              <h3 className="font-semibold mb-2">ประวัติการเรียก (ล่าสุด)</h3>
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                {history.slice(0, 6).map((h) => (
+                  <li key={h.Q_number}>{h.Q_number} — {h.FULLNAME_TH} — {h.service}</li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </div>
       </div>
     </div>

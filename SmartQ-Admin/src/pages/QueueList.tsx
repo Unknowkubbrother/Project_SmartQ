@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 
 const QueueList = () => {
-  const { queues } = useQueue();
+  const { queues, history, currentQueue, serverStatus } = useQueue();
 
   const getStatusBadge = (status: QueueStatus) => {
     switch (status) {
@@ -44,9 +44,17 @@ const QueueList = () => {
     return '';
   };
 
-  const waitingCount = queues.filter(q => q.status === 'waiting').length;
-  const callingCount = queues.filter(q => q.status === 'calling').length;
-  const completedCount = queues.filter(q => q.status === 'completed').length;
+  const waitingCount = queues.length;
+  const callingCount = currentQueue ? 1 : 0;
+  // Exclude the currently calling item from the recent history list and completed count
+  const displayedHistory = history ? history.filter(h => String(h.Q_number) !== currentQueue?.id) : [];
+  const completedCount = serverStatus?.processed_count ?? displayedHistory.length;
+
+  // If there's a currentQueue that was dequeued from server, it may not be present in `queues` list
+  // Show it at the top of the table so operators see the 'calling' status in the full list.
+  const displayQueues = currentQueue
+    ? [currentQueue, ...queues.filter(q => q.id !== currentQueue.id)]
+    : queues;
 
   return (
     <div className="min-h-screen bg-gradient-subtle py-8 px-4">
@@ -126,10 +134,12 @@ const QueueList = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {queues.map((queue) => (
+                {displayQueues.map((queue) => {
+                  const rowStatus: QueueStatus = (currentQueue && currentQueue.id === queue.id) ? 'calling' : queue.status;
+                  return (
                   <tr
                     key={queue.id}
-                    className={`transition-all duration-300 ${getRowClassName(queue.status)}`}
+                    className={`transition-all duration-300 ${getRowClassName(rowStatus)}`}
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
@@ -144,11 +154,11 @@ const QueueList = () => {
                       <span className="font-medium">{queue.customerName}</span>
                     </td>
                     <td className="px-6 py-4">
-                      {getStatusBadge(queue.status)}
+                      {getStatusBadge(rowStatus)}
                     </td>
                     <td className="px-6 py-4">
-                      {queue.counter ? (
-                        <span className="font-semibold text-primary">ช่อง {queue.counter}</span>
+                      {queue.service ? (
+                        <span className="font-semibold text-primary">{queue.service}</span>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
@@ -160,11 +170,23 @@ const QueueList = () => {
                       })}
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
         </Card>
+
+        {/* Recent history */}
+        {displayedHistory && displayedHistory.length > 0 && (
+          <Card className="mt-8 p-4">
+            <h3 className="font-semibold mb-2">ประวัติการเรียก (ล่าสุด)</h3>
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              {displayedHistory.slice(0, 8).map(h => (
+                <li key={h.Q_number}>{h.Q_number} — {h.FULLNAME_TH} — {h.service}</li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         {/* Choice Navigator Link */}
         <div className="mt-8 text-center">
