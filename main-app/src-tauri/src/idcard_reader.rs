@@ -242,3 +242,22 @@ pub fn run_event_loop(app_handle: AppHandle) -> AppResult<()> {
     }
     }
 }
+
+// Return the first available reader name if present (used by frontend to probe reader state)
+pub fn get_current_reader() -> Result<Option<String>, String> {
+    match Context::establish(Scope::User) {
+        Ok(ctx) => {
+            match ctx.list_readers_owned() {
+                Ok(readers) => {
+                    if readers.is_empty() {
+                        Ok(None)
+                    } else {
+                        Ok(Some(readers[0].to_string_lossy().to_string()))
+                    }
+                }
+                Err(e) => Err(format!("PCSC error: {}", e)),
+            }
+        }
+        Err(e) => Err(format!("Context error: {}", e)),
+    }
+}

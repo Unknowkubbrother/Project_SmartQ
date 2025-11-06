@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/coreup";
 import { ThaiIDCardData } from "@/interfaces";
 import "./App.css";
 import Home from "@/pages/Home";
@@ -41,6 +42,9 @@ function App() {
 
         // don't set cardData immediately — mark incoming and start loader
         setIncomingData(dataObj as ThaiIDCardData);
+        // mark reader as ready when we receive data (covers cases where reader-ready event
+        // may have been emitted before the frontend listener was registered)
+        setReaderReady(true);
         setErrorMessage(null);
         setProgress(13);
         setLoadingMain(true);
@@ -49,6 +53,8 @@ function App() {
       unlistenPhoto = await listen("thai_id_photo", (event) => {
         const payload = event.payload;
         const photoBase64 = payload as string;
+        // mark reader as ready when photo arrives
+        setReaderReady(true);
         setPhotoData(photoBase64);
       });
 
@@ -76,6 +82,20 @@ function App() {
         setReaderReady(true);
         setErrorMessage(null);
       });
+
+      // Probe current reader state in case the backend emitted the ready event before
+      // the frontend listener was registered (race). This will set readerReady true
+      // if a reader is already present.
+      try {
+        const current: any = await invoke('check_reader');
+        if (current) {
+          setReaderReady(true);
+          setErrorMessage(null);
+        }
+      } catch (e) {
+        // ignore probe errors
+        console.debug('check_reader probe failed', e);
+      }
     };
 
     setupListeners();

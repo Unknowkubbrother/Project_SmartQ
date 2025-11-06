@@ -30,11 +30,11 @@ function Main({ cardData, photoData, onCancel, backendUrl }: { cardData: ThaiIDC
       cancelButtonColor: "#d33",
       confirmButtonText: "ใช่, ยืนยันการเข้ารับบริการ",
       cancelButtonText: "ยกเลิก"
-    }).then((result) => {
+    }).then((result : any) => {
       if (result.isConfirmed) {
   const endpointBase = (backendUrl && backendUrl.length > 0) ? backendUrl.replace(/\/$/, '') : 'http://localhost:8000';
   axios.post(endpointBase + '/enqueue', { FULLNAME_TH: cardData?.FULLNAME_TH, service: selectedService })
-          .then(_ => {
+          .then((_ : any) => {
             Swal.fire({
               title: "สำเร็จ!",
               text: "คุณได้ยืนยันการเข้ารับบริการเรียบร้อยแล้ว.",
@@ -56,7 +56,7 @@ function Main({ cardData, photoData, onCancel, backendUrl }: { cardData: ThaiIDC
               });
             });
           })
-          .catch(error => {
+          .catch((error: any) => {
             Swal.fire({
               title: "เกิดข้อผิดพลาด!",
               text: "ไม่สามารถยืนยันการเข้ารับบริการได้ กรุณาลองใหม่อีกครั้ง.",
@@ -78,7 +78,7 @@ function Main({ cardData, photoData, onCancel, backendUrl }: { cardData: ThaiIDC
       cancelButtonColor: "#d33",
       confirmButtonText: "ใช่, ยกเลิก",
       cancelButtonText: "ไม่, กลับไป"
-    }).then((result) => {
+    }).then((result : any) => {
       if (result.isConfirmed) {
         Swal.fire({
           title: "กลับสู่หน้าหลัก",
