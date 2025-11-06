@@ -114,7 +114,8 @@ html = """
 
 @app.get("/")
 def index():
-    return HTMLResponse(html)
+    return {"message": "SmartQ Voice Backend is running."}
+    # return HTMLResponse(html)
 
 
 # ---------------- Queue Functions ----------------
