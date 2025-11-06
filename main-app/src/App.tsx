@@ -10,6 +10,16 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "./components/ui/button";
 import axios from "axios";
 import Swal from "sweetalert2";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
 
 function App() {
   const [cardData, setCardData] = useState<ThaiIDCardData | null>(null);
@@ -19,7 +29,7 @@ function App() {
 
   const [loadingMain, setLoadingMain] = useState(false);
   const [progress, setProgress] = useState(0);
-  // backend URL (session-only) and connection/readiness states
+
   const [backendInput, setBackendInput] = useState('');
   const [backendUrl, setBackendUrl] = useState<string | null>(null);
   const [backendConnecting, setBackendConnecting] = useState(false);
@@ -29,12 +39,22 @@ function App() {
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [listusernames, setListUsernames] = useState<string[]>([]);
+
+  const fetchUsernames = async (backendUrl : string) => {
+    try {
+      const response = await axios.get(`${backendUrl}/api/usernames`);
+      setListUsernames(response.data);
+    } catch (error) {
+      console.error('Error fetching usernames:', error);
+    }
+  };
 
   useEffect(() => {
-  let unlistenData: UnlistenFn | null = null;
-  let unlistenError: UnlistenFn | null = null;
-  let unlistenPhoto: UnlistenFn | null = null;
-  let unlistenReader: UnlistenFn | null = null;
+    let unlistenData: UnlistenFn | null = null;
+    let unlistenError: UnlistenFn | null = null;
+    let unlistenPhoto: UnlistenFn | null = null;
+    let unlistenReader: UnlistenFn | null = null;
 
     const setupListeners = async () => {
       unlistenData = await listen("thai_id_data", (event) => {
@@ -46,10 +66,7 @@ function App() {
           dataObj[key?.trim()] = value?.trim();
         });
 
-        // don't set cardData immediately — mark incoming and start loader
         setIncomingData(dataObj as ThaiIDCardData);
-        // mark reader as ready when we receive data (covers cases where reader-ready event
-        // may have been emitted before the frontend listener was registered)
         setReaderReady(true);
         setErrorMessage(null);
         setProgress(13);
@@ -59,7 +76,6 @@ function App() {
       unlistenPhoto = await listen("thai_id_photo", (event) => {
         const payload = event.payload;
         const photoBase64 = payload as string;
-        // mark reader as ready when photo arrives
         setReaderReady(true);
         setPhotoData(photoBase64);
       });
@@ -69,12 +85,11 @@ function App() {
         const payload = event.payload;
         if (typeof payload === "string") {
           setErrorMessage(payload);
-          // if reader not found message, mark reader as not ready
           if (payload.includes('ไม่พบเครื่องอ่านบัตร') || payload.includes('ไม่พบ')) {
             setReaderReady(false);
           }
         }
-        // cancel any pending load and clear data
+
         setIncomingData(null);
         setLoadingMain(false);
         setCardData(null);
@@ -82,16 +97,12 @@ function App() {
         setProgress(0);
       });
 
-      // listen for reader ready event
       unlistenReader = await listen('thai_reader_ready', (event) => {
         console.debug('Reader ready:', event.payload);
         setReaderReady(true);
         setErrorMessage(null);
       });
 
-      // Probe current reader state in case the backend emitted the ready event before
-      // the frontend listener was registered (race). This will set readerReady true
-      // if a reader is already present.
       try {
         const current: any = await invoke('check_reader');
         if (current) {
@@ -99,7 +110,6 @@ function App() {
           setErrorMessage(null);
         }
       } catch (e) {
-        // ignore probe errors
         console.debug('check_reader probe failed', e);
       }
     };
@@ -113,23 +123,25 @@ function App() {
     };
   }, []);
 
-  // attempt to connect to backend services
   const connectBackend = async (url: string) => {
     setBackendConnecting(true);
     setBackendError(null);
     try {
-      const endpoint = url.replace(/\/$/, '') + '/api'+ '/services';
+      const endpoint = url.replace(/\/$/, '') + '/api' + '/services';
       const res = await fetch(endpoint, { method: 'GET' });
       if (!res.ok) throw new Error('ไม่สามารถเชื่อมต่อ backend');
       await res.json();
       setBackendUrl(url.replace(/\/$/, ''));
       setBackendConnected(true);
+      fetchUsernames(url.replace(/\/$/, ''));
     } catch (e: any) {
       console.error('Backend connect failed', e);
       setBackendError(e?.message || 'connection failed');
       setBackendConnected(false);
+      setListUsernames([]);
     } finally {
       setBackendConnecting(false);
+      setListUsernames([]);
     }
   };
 
@@ -196,7 +208,6 @@ function App() {
 
   return (
     <main className="w-full h-lvh relative">
-      {/* Modal: require backend URL and reader ready before using app */}
       {(!backendConnected || !readerReady) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-white rounded-lg p-6 w-[420px]">
@@ -231,8 +242,23 @@ function App() {
               <h2 className="text-lg font-semibold mb-4">เข้าสู่ระบบ</h2>
               <div className="space-y-3">
                 <div>
-                  <label className="text-sm">ชื่อผู้ใช้</label>
-                  <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full border px-3 py-2 rounded" />
+                  {/* <label className="text-sm">ชื่อผู้ใช้</label>
+                  <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full border px-3 py-2 rounded" /> */}
+                  <Select value={username} onValueChange={setUsername}>
+                    <SelectTrigger className="w-full px-3 py-2 ">
+                      <SelectValue placeholder="Select a username" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Usernames</SelectLabel>
+                        {
+                          listusernames.map((name) => (
+                            <SelectItem key={name} value={name}>{name}</SelectItem>
+                          ))
+                        }
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <label className="text-sm">รหัสผ่าน</label>
@@ -247,12 +273,7 @@ function App() {
         )
       }
 
-      {/* This is the main application content logic.
-        It's now re-ordered to prioritize checking for cardData *after* loading,
-        and to ensure Home is only shown when all prerequisites are met.
-      */}
       {loadingMain && backendConnected && readerReady && isAuthenticated ? (
-        // 1. Show loading screen if we are loading (and all prereqs are met)
         <div className="w-full h-full flex flex-col items-center justify-center gap-4">
           <div className="text-lg font-medium">กำลังโหลดข้อมูล...</div>
           <div className="w-[60%]">
@@ -260,17 +281,15 @@ function App() {
           </div>
         </div>
       ) : cardData ? (
-        // 2. If NOT loading, and we HAVE cardData, show Main or an Error
         backendConnected && isAuthenticated && readerReady ? (
-          // 2a. All prereqs met: Show Main
           <Main
             cardData={cardData}
             photoData={photoData}
             onCancel={handleCancel}
             backendUrl={backendUrl}
+            username={username}
           />
         ) : (
-          // 2b. Prereqs failed (e.g., disconnect): Show Warning
           <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-center">
             <div className="text-lg font-semibold">⚠️ ไม่สามารถแสดงข้อมูลได้</div>
             {!backendConnected && <div>❌ การเชื่อมต่อ Backend หลุด</div>}
@@ -280,13 +299,9 @@ function App() {
           </div>
         )
       ) : (
-        // 3. If NOT loading, and NO cardData...
         backendConnected && isAuthenticated && readerReady ? (
-          // 3a. All prereqs met: Show Home (waiting for card)
           <Home />
         ) : (
-          // 3b. Prereqs NOT met: Show nothing (null)
-          // The modals are handling the UI in this state.
           null
         )
       )}

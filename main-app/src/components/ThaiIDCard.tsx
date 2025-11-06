@@ -2,8 +2,8 @@ import { ThaiIDCardData } from "@/interfaces";
 
 function PlaceholderPhoto() {
   return (
-    <div className="w-20 h-28 bg-slate-100 border border-slate-200 flex items-center justify-center rounded-md">
-      <svg className="w-8 h-8 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+    <div className="w-20 h-28 lg:w-24 lg:h-32 bg-slate-100 border border-slate-200 flex items-center justify-center rounded-md">
+      <svg className="w-8 h-8 lg:w-10 lg:h-10 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
         <path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       </svg>
@@ -14,8 +14,8 @@ function PlaceholderPhoto() {
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex flex-col">
-      <span className="text-[10px] text-sky-400 font-medium">{label}</span>
-      <span className="text-xs text-slate-800">{value ?? "—"}</span>
+      <span className="text-[10px] lg:text-lg text-sky-400 font-medium">{label}</span>
+      <span className="text-xs lg:text-[15px] text-slate-800">{value ?? "—"}</span>
     </div>
   );
 }
@@ -32,7 +32,7 @@ function ThaiIDCard({
   photoData: string | null;
 }) {
   return (
-    <main className="w-full mx-auto p-2 scale-95">
+    <main className="w-full lg:w-[70%] mx-auto p-2">
       <section className="bg-white/80 backdrop-blur-sm border border-slate-200 rounded-xl shadow-md overflow-hidden relative">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
           <h3 className="text-base font-semibold text-slate-800">ข้อมูลส่วนตัว</h3>
@@ -66,7 +66,7 @@ function ThaiIDCard({
                   <img
                     src={`data:image/jpeg;base64,${photoData}`}
                     alt="ID Card Photo"
-                    className="w-20 h-28 object-cover rounded-md border border-slate-200 shadow-sm"
+                    className="w-20 h-28 lg:w-24 lg:h-32 object-cover rounded-md border border-slate-200 shadow-sm"
                   />
                 ) : (
                   <PlaceholderPhoto />

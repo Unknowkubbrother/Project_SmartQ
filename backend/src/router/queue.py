@@ -77,12 +77,6 @@ serviceTypes = {
     "contact_staff": "ติดต่อเจ้าหน้าที่"
   };
 
-@queue_router.get("/")
-def index():
-    return {"message": "SmartQ Voice Backend is running."}
-    # return HTMLResponse(html)
-
-
 @queue_router.get('/services')
 def get_services():
     # return mapping of service key to label
@@ -94,7 +88,7 @@ def get_services():
 async def enqueue_item(item: EnqueueItem):
     global currentQ_number
     currentQ_number += 1
-    data = {"Q_number": currentQ_number, "FULLNAME_TH": item.FULLNAME_TH , "service": serviceTypes[item.service]}
+    data = {"Q_number": currentQ_number, "FULLNAME_TH": item.FULLNAME_TH , "service": serviceTypes["general"]}
     queue.append(data)
     await manager.broadcast({"type": "queue_update", "queue": list(queue)})
     await manager.broadcast_status()

@@ -1,43 +1,49 @@
-import { useState } from "react";
 import { ThaiIDCardData } from "@/interfaces";
 import ThaiIDCard from "@/components/ThaiIDCard";
 import { Button } from "@/components/ui/button";
 import axios from "axios";
 import Swal from "sweetalert2";
 
-
-function Main({ cardData, photoData, onCancel, backendUrl }: { cardData: ThaiIDCardData | null; photoData: string | null; onCancel: () => void; backendUrl?: string | null }) {
-  const serviceTypes: { [key: string]: string } = {
-    "general": "ช่องบริการทั่วไป",
-    "appointment": "ช่องบริการนัดหมาย",
-    "emergency": "ช่องบริการฉุกเฉิน",
-    "other": "ช่องบริการอื่นๆ",
-    "contact_staff": "ติดต่อเจ้าหน้าที่"
-  };
-  const [selectedService, setSelectedService] = useState<string | null>(null);
-
+function Main({ cardData, photoData, onCancel, backendUrl, username }: { cardData: ThaiIDCardData | null; photoData: string | null; onCancel: () => void; backendUrl?: string | null, username?: string }) {
   const submitServiceSelection = () => {
-    if (!selectedService) {
-      console.log("No service selected");
-      return;
-    }
-
     Swal.fire({
-      title: "คุณต้องการยืนยันการเข้ารับบริการใช่หรือไม่?",
+      title: "คุณต้องการยืนยันการเข้ารับบัตรคิวใช่หรือไม่?",
       icon: "question",
       showCancelButton: true,
       confirmButtonColor: "#3085d6",
       cancelButtonColor: "#d33",
-      confirmButtonText: "ใช่, ยืนยันการเข้ารับบริการ",
+      confirmButtonText: "ใช่, ยืนยันการเข้ารับบัตรคิว",
       cancelButtonText: "ยกเลิก"
-    }).then((result : any) => {
+    }).then(async (result: any) => {
       if (result.isConfirmed) {
-  const endpointBase = (backendUrl && backendUrl.length > 0) ? backendUrl.replace(/\/$/, '') : 'http://localhost:8000';
-  axios.post(endpointBase + '/api/enqueue', { FULLNAME_TH: cardData?.FULLNAME_TH, service: selectedService })
-          .then((_ : any) => {
+        const endpointBase = (backendUrl && backendUrl.length > 0) ? backendUrl.replace(/\/$/, '') : 'http://localhost:8000';
+        const existsPerson = await axios.get(endpointBase + `/api/check_exist_person/${cardData?.CID}`);
+
+        if (!existsPerson.data.exists) {
+          Swal.fire({
+            title: "ไม่พบข้อมูลบุคคล",
+            text: "ไม่พบข้อมูลบุคคลในระบบ กรุณาติดต่อเจ้าหน้าที่.",
+            icon: "error"
+          });
+          return;
+        }
+
+        const insert_visit = await axios.post(endpointBase + '/api/insert_visit', { username: username || 'adm', cid: cardData?.CID });
+
+        if (insert_visit.status !== 200) {
+          Swal.fire({
+            title: "เกิดข้อผิดพลาด!",
+            text: "ไม่สามารถบันทึกข้อมูลการเข้ารับบริการได้ กรุณาลองใหม่อีกครั้ง.",
+            icon: "error"
+          });
+          return;
+        }
+
+        await axios.post(endpointBase + '/api/enqueue', { FULLNAME_TH: cardData?.FULLNAME_TH })
+          .then((_: any) => {
             Swal.fire({
               title: "สำเร็จ!",
-              text: "คุณได้ยืนยันการเข้ารับบริการเรียบร้อยแล้ว.",
+              text: "คุณได้ยืนยันการเข้ารับบัตรคิวเรียบร้อยแล้ว.",
               icon: "success",
               timer: 2000,
               timerProgressBar: true,
@@ -51,7 +57,6 @@ function Main({ cardData, photoData, onCancel, backendUrl }: { cardData: ThaiIDC
                   Swal.showLoading();
                 }
               }).then(() => {
-                setSelectedService(null);
                 onCancel();
               });
             });
@@ -59,7 +64,7 @@ function Main({ cardData, photoData, onCancel, backendUrl }: { cardData: ThaiIDC
           .catch((error: any) => {
             Swal.fire({
               title: "เกิดข้อผิดพลาด!",
-              text: "ไม่สามารถยืนยันการเข้ารับบริการได้ กรุณาลองใหม่อีกครั้ง.",
+              text: "ไม่สามารถยืนยันการเข้ารับบัตรคิวได้ กรุณาลองใหม่อีกครั้ง.",
               icon: "error"
             });
             console.error("Error submitting service:", error);
@@ -78,7 +83,7 @@ function Main({ cardData, photoData, onCancel, backendUrl }: { cardData: ThaiIDC
       cancelButtonColor: "#d33",
       confirmButtonText: "ใช่, ยกเลิก",
       cancelButtonText: "ไม่, กลับไป"
-    }).then((result : any) => {
+    }).then((result: any) => {
       if (result.isConfirmed) {
         Swal.fire({
           title: "กลับสู่หน้าหลัก",
@@ -88,7 +93,6 @@ function Main({ cardData, photoData, onCancel, backendUrl }: { cardData: ThaiIDC
             Swal.showLoading();
           }
         }).then(() => {
-          setSelectedService(null);
           onCancel();
         });
       }
@@ -96,24 +100,19 @@ function Main({ cardData, photoData, onCancel, backendUrl }: { cardData: ThaiIDC
   }
 
   return (
-    <main className="w-full flex flex-col justify-between p-4">
+    <main className="w-full flex flex-col justify-between p-4 lg:gap-7">
+      <header className="w-full justify-center items-center flex flex-col p-4">
+        <img src="./logo.png" alt="" width={100} height={100} />
+        <h1 className="text-4xl">หน้ารับบัตรคิว</h1>
+        <h2 className="text-2xl mt-5">โรงพยาบาลส่งเสริมสุขภาพตำบลคลองบุหรี่</h2>
+      </header>
+
+      <div className="w-full h-5"></div>
+      <hr className="my-4 border-gray-300 w-full" />
       <ThaiIDCard cardData={cardData} photoData={photoData} />
-      <div className="w-full h-[300px] lg:h-[500px] lg:max-h-[500px] bg-sky-100 mt-4 grid grid-flow-row grid-cols-2 gap-4 rounded-sm p-4 text-white overflow-auto">
-        {Object.entries(serviceTypes).map(([key, label]) => (
-          <Button
-            className={`bg-sky-600 rounded-lg p-4 h-[100px] lg:h-[200px] ${selectedService === key ? "ring-4 bg-green-400" : ""}`}
-            key={key}
-            onClick={() => {
-              setSelectedService(key);
-            }}
-          >
-            {label}
-          </Button>
-        ))}
-      </div>
-      <div className="w-full flex justify-around p-4 mt-3" >
-        <Button variant="default" onClick={submitServiceSelection}>เข้ารับบริการ</Button>
-        <Button variant="destructive" onClick={() => { handleOnCancel(); }}>ยกเลิก</Button>
+      <div className="w-full flex justify-around p-4 mt-3 gap-3" >
+        <Button variant="default" onClick={submitServiceSelection} size='lg' className="w-1/2 h-20">รับบัตรคิว</Button>
+        <Button variant="destructive" onClick={() => { handleOnCancel(); }} size='lg' className="w-1/2 h-20">ยกเลิก</Button>
       </div>
     </main>
   )
