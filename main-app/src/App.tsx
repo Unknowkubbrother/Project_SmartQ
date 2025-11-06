@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/coreup";
+import { invoke } from "@tauri-apps/api/core";
 import { ThaiIDCardData } from "@/interfaces";
 import "./App.css";
 import Home from "@/pages/Home";
