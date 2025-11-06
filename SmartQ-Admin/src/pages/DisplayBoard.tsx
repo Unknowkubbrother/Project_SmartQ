@@ -57,6 +57,14 @@ const DisplayBoard = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Service label (if provided by server) */}
+                {currentQueue.service && (
+                  <div className="mt-6">
+                    <p className="text-lg text-muted-foreground mb-1">บริการ</p>
+                    <p className="text-2xl font-semibold text-primary">{currentQueue.service}</p>
+                  </div>
+                )}
               </>
             ) : (
               <div className="py-12">
@@ -78,7 +86,7 @@ const DisplayBoard = () => {
             </div>
             
             <div className="p-12 text-center bg-card">
-              <div className="flex items-center justify-center gap-12">
+                <div className="flex items-center justify-center gap-12">
                 <div>
                   <p className="text-xl text-muted-foreground mb-2">หมายเลขคิว</p>
                   <div className="inline-block bg-primary/10 rounded-2xl px-10 py-4 border-2 border-primary/30">
@@ -92,6 +100,13 @@ const DisplayBoard = () => {
                   <p className="text-xl text-muted-foreground mb-2">ชื่อ</p>
                   <p className="text-3xl font-bold">{nextQueue.customerName}</p>
                 </div>
+                {/* show service for next queue if present */}
+                {nextQueue.service && (
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-1">บริการ</p>
+                    <p className="text-lg font-medium">{nextQueue.service}</p>
+                  </div>
+                )}
               </div>
             </div>
           </Card>

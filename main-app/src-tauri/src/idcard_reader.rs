@@ -190,15 +190,20 @@ pub fn run_event_loop(app_handle: AppHandle) -> AppResult<()> {
     let re = Regex::new(r"#+")?;
 
     let readers = ctx.list_readers_owned()?;
-    if readers.is_empty() {
-        let _ = app_handle.emit("thai_id_error", "ไม่พบเครื่องอ่านบัตร");
-        return Ok(());
-    }
-    let reader_name = &readers[0];
+    // Wait until a reader is available; emit error events while none found
+    loop {
+        let readers = ctx.list_readers_owned()?;
+        if readers.is_empty() {
+            let _ = app_handle.emit("thai_id_error", "ไม่พบเครื่องอ่านบัตร");
+            thread::sleep(Duration::from_secs(1));
+            continue;
+        }
+        // found at least one reader
+        let reader_name = &readers[0];
+        let _ = app_handle.emit("thai_reader_ready", reader_name.to_string_lossy().to_string());
+        println!("🖴 ใช้งาน Reader: {}", reader_name.to_string_lossy());
 
-    println!("🖴 ใช้งาน Reader: {}", reader_name.to_string_lossy());
-
-    let mut states = [ReaderState::new(reader_name.as_c_str(), State::UNAWARE)];
+        let mut states = [ReaderState::new(reader_name.as_c_str(), State::UNAWARE)];
     loop {
         match ctx.get_status_change(Some(Duration::from_secs(1)), &mut states) {
             Ok(_) => {}
@@ -232,5 +237,8 @@ pub fn run_event_loop(app_handle: AppHandle) -> AppResult<()> {
         }
 
         states = [ReaderState::new(reader_name.as_c_str(), states[0].event_state())];
+        // continue monitoring the same reader in this loop; if reader disappears,
+        // the next ctx.get_status_change will eventually report and we can fall back
+    }
     }
 }

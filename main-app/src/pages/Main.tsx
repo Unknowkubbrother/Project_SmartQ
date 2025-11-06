@@ -6,7 +6,7 @@ import axios from "axios";
 import Swal from "sweetalert2";
 
 
-function Main({ cardData, photoData, onCancel }: { cardData: ThaiIDCardData | null; photoData: string | null; onCancel: () => void; }) {
+function Main({ cardData, photoData, onCancel, backendUrl }: { cardData: ThaiIDCardData | null; photoData: string | null; onCancel: () => void; backendUrl?: string | null }) {
   const serviceTypes: { [key: string]: string } = {
     "general": "ช่องบริการทั่วไป",
     "appointment": "ช่องบริการนัดหมาย",
@@ -32,7 +32,8 @@ function Main({ cardData, photoData, onCancel }: { cardData: ThaiIDCardData | nu
       cancelButtonText: "ยกเลิก"
     }).then((result) => {
       if (result.isConfirmed) {
-        axios.post("http://localhost:8000/enqueue", { FULLNAME_TH: cardData?.FULLNAME_TH, service: selectedService })
+  const endpointBase = (backendUrl && backendUrl.length > 0) ? backendUrl.replace(/\/$/, '') : 'http://localhost:8000';
+  axios.post(endpointBase + '/enqueue', { FULLNAME_TH: cardData?.FULLNAME_TH, service: selectedService })
           .then(_ => {
             Swal.fire({
               title: "สำเร็จ!",
