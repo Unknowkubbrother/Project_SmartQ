@@ -63,47 +63,94 @@ function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPa
           return;
         }
 
-        //   const insert_visit = await axios.post(backendUrl + '/api/jhcis/insert_visit', { username: username || 'adm', pid: cardData?.pid });
+        const claimData = await axios.post(backendUrl + '/api/nhso/confirm_save', {
+          pid: cardData?.pid,
+          claimType: cardData?.claimTypes?.[0]?.claimType,
+          mobile: mobile,
+          correlationId: cardData?.correlationId
+        });
 
-        //   if (insert_visit.status !== 200) {
-        //     Swal.fire({
-        //       title: "เกิดข้อผิดพลาด!",
-        //       text: "ไม่สามารถบันทึกข้อมูลการเข้ารับบริการได้ กรุณาลองใหม่อีกครั้ง.",
-        //       icon: "error"
-        //     });
-        //     return;
-        //   }
+        if (claimData.status !== 200) {
+          Swal.fire({
+            title: "เกิดข้อผิดพลาด!",
+            text: "ไม่สามารถขอ New Authen สิทธิการรักษาได้ กรุณาลองใหม่อีกครั้ง.",
+            icon: "error"
+          });
+          return;
+        }
 
-        //   await axios.post(backendUrl + '/api/inspect/enqueue', { fname: cardData?.fname })
-        //     .then((_: any) => {
-        //       Swal.fire({
-        //         title: "สำเร็จ!",
-        //         text: "คุณได้ยืนยันการเข้ารับบัตรคิวเรียบร้อยแล้ว.",
-        //         icon: "success",
-        //         timer: 2000,
-        //         timerProgressBar: true,
-        //         showConfirmButton: false,
-        //       }).then(() => {
-        //         Swal.fire({
-        //           title: "กลับสู่หน้าหลัก",
-        //           timer: 3000,
-        //           timerProgressBar: true,
-        //           didOpen: () => {
-        //             Swal.showLoading();
-        //           }
-        //         }).then(() => {
-        //           onCancel();
-        //         });
-        //       });
-        //     })
-        //     .catch((error: any) => {
-        //       Swal.fire({
-        //         title: "เกิดข้อผิดพลาด!",
-        //         text: "ไม่สามารถยืนยันการเข้ารับบัตรคิวได้ กรุณาลองใหม่อีกครั้ง.",
-        //         icon: "error"
-        //       });
-        //       console.error("Error submitting service:", error);
-        //     });
+        const rawResponse: any = claimData.data ?? {};
+        const payload: any = rawResponse.data ?? rawResponse.result ?? rawResponse.claim ?? rawResponse;
+
+        const claimTypeFromServer = payload.claimType ?? rawResponse.claimType ?? undefined;
+        const claimCodeFromServer = payload.claimCode ?? rawResponse.claimCode ?? undefined;
+        const created = payload.createdDate ?? rawResponse.createdDate ?? rawResponse.data?.createdDate as string | undefined;
+
+        let datetime_claim = created || "";
+
+        if (created) {
+          const d = new Date(created);
+          if (!isNaN(d.getTime())) {
+            const Y = d.getFullYear();
+            const M = d.getMonth() + 1; // no leading zero
+            const D = d.getDate(); // no leading zero
+            const hh = String(d.getHours()).padStart(2, "0");
+            const mm = String(d.getMinutes()).padStart(2, "0");
+            const ss = String(d.getSeconds()).padStart(2, "0");
+            datetime_claim = `${Y}-${M}-${D} ${hh}:${mm}:${ss}`;
+          }
+        }
+
+        const insert_visit = await axios.post(backendUrl + "/api/jhcis/insert_visit", {
+          username: username || "adm",
+          pid: cardData?.pid,
+          claimType: claimTypeFromServer || cardData?.claimTypes?.[0]?.claimType,
+          claimCode: claimCodeFromServer,
+          datetime_claim,
+          mainInscl: cardData?.mainInscl,
+          subInscl: cardData?.subInscl,
+        });
+
+        if (insert_visit.status !== 200) {
+          Swal.fire({
+            title: "เกิดข้อผิดพลาด!",
+            text: "ไม่สามารถบันทึกข้อมูลการเข้ารับบริการได้ กรุณาลองใหม่อีกครั้ง.",
+            icon: "error"
+          });
+          return;
+        }
+
+
+        await axios.post(backendUrl + '/api/inspect/enqueue', { fname: cardData?.fname })
+          .then((_: any) => {
+            Swal.fire({
+              title: "สำเร็จ!",
+              text: "คุณได้ยืนยันการเข้ารับบัตรคิวเรียบร้อยแล้ว.",
+              icon: "success",
+              timer: 2000,
+              timerProgressBar: true,
+              showConfirmButton: false,
+            }).then(() => {
+              Swal.fire({
+                title: "กลับสู่หน้าหลัก",
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: () => {
+                  Swal.showLoading();
+                }
+              }).then(() => {
+                onCancel();
+              });
+            });
+          })
+          .catch((error: any) => {
+            Swal.fire({
+              title: "เกิดข้อผิดพลาด!",
+              text: "ไม่สามารถยืนยันการเข้ารับบัตรคิวได้ กรุณาลองใหม่อีกครั้ง.",
+              icon: "error"
+            });
+            console.error("Error submitting service:", error);
+          });
       }
     });
   }
@@ -213,7 +260,7 @@ function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPa
             <MobileUI mobile={mobile} setMobile={setMobile} setMobileUI={setMobileUI} submitServiceSelection={submitServiceSelection} />
           </div>
         </div>
-        
+
       )}
 
     </main>

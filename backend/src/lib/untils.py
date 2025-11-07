@@ -55,12 +55,12 @@ def nhso_save_draft(pid: str, claim_type: str, mobile: str, correlation_id: str,
 
 
 
-def nhso_confirm_save(pid: str, claim_type: str, mobile: str, correlation_id: str,hn: str = None, hcode: str = None):
+def nhso_confirm_save(pid: str, claim_type: str, mobile: str, correlationId: str,hn: str = None, hcode: str = None):
     body = {
         "pid": pid,
         "claimType": claim_type,
         "mobile": mobile,
-        "correlationId": correlation_id,
+        "correlationId": correlationId,
     }
     if hn is not None:
         body["hn"] = hn

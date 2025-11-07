@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Response, status
 from typing import Optional
 from src.lib.untils import nhso_confirm_save, smartcard_read
+from src.models import Claim
 
 nsho_router = APIRouter()
 
@@ -19,21 +20,14 @@ async def read_smartcard(readImageFlag: Optional[bool] = False, response: Respon
 
 @nsho_router.post("/confirm_save", status_code=status.HTTP_200_OK)
 async def confirm_save(
-    pid: str,
-    claim_type: str,
-    mobile: str,
-    correlation_id: str,
-    hn: Optional[str] = None,
-    hcode: Optional[str] = None,
+    payload: Claim,
     response: Response = Response()
 ):
     status_code, responese = nhso_confirm_save(
-        pid=pid,
-        claim_type=claim_type,
-        mobile=mobile,
-        correlation_id=correlation_id,
-        hn=hn,
-        hcode=hcode
+        pid=payload.pid,
+        claim_type=payload.claimType,
+        mobile=payload.mobile,
+        correlationId=payload.correlationId
     )
 
     if status_code != 200:

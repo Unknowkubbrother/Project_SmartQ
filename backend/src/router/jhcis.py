@@ -67,40 +67,88 @@ async def check_exist_person(pid: str):
 async def insert_visit(payload: InsertVisit):
     username = payload.username
     pid = payload.pid
+    claimType = payload.claimType
+    claimCode = payload.claimCode
+    datetime_claim = payload.datetime_claim
+    mainInscl = payload.mainInscl
+    subInscl = payload.subInscl
 
-    db_cursor.execute("SELECT pcucode FROM user WHERE username = %s", (username,))
-    user = db_cursor.fetchone()
-    if not user:
-        return {"error": "User not found"}
-    pcucode = user[0]
 
-    db_cursor.execute("SELECT offid FROM office WHERE offid = %s", (pcucode,))
-    office = db_cursor.fetchone()
-    if not office:
-        return {"error": f"Office with offid={pcucode} not found in 'office' table"}
-    
-    db_cursor.execute("SELECT pcucodeperson, pid FROM person WHERE idcard = %s", (pid,))
-    person = db_cursor.fetchone()
-    if not person:
-        return {"error": "Person not found for this user"}
-    pcucodeperson, pid = person
+    with connection.cursor() as db_cursor:  # ✅ ใช้ cursor ใน scope นี้
+        db_cursor.execute("SELECT pcucode FROM user WHERE username = %s", (username,))
+        user = db_cursor.fetchone()
+        if not user:
+            return {"error": "User not found"}
+        pcucode = user[0]
 
-    db_cursor.execute("SELECT COALESCE(MAX(visitno), 0) + 1 FROM visit")
-    visitno = db_cursor.fetchone()[0]
+        db_cursor.execute("SELECT offid FROM office WHERE offid = %s", (pcucode,))
+        office = db_cursor.fetchone()
+        if not office:
+            return {"error": f"Office with offid={pcucode} not found in 'office' table"}
+        
+        db_cursor.execute("SELECT pcucodeperson, pid FROM person WHERE idcard = %s", (pid,))
+        person = db_cursor.fetchone()
+        if not person:
+            return {"error": "Person not found for this user"}
+        pcucodeperson, pid = person
 
-    visitdate = datetime.now().strftime("%Y-%m-%d")
-    dateupdate = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    try:
-        import requests
-        ipv4this = requests.get("https://api.ipify.org?format=text", timeout=5).text
-    except Exception:
-        ipv4this = socket.gethostbyname(socket.gethostname())
+        db_cursor.execute("SELECT COALESCE(MAX(visitno), 0) + 1 FROM visit")
+        visitno = db_cursor.fetchone()[0]
 
-    flagservice = "01"
-    servicetype = 1
+        visitdate = datetime.now().strftime("%Y-%m-%d")
+        dateupdate = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    insert_query = """
-        INSERT INTO visit (
+        try:
+            import requests
+            ipv4this = requests.get("https://api.ipify.org?format=text", timeout=5).text
+        except Exception:
+            ipv4this = socket.gethostbyname(socket.gethostname())
+
+        print("test2")
+
+        flagservice = "01"
+        servicetype = 1
+        receivepatient = "00"
+        refer = "00"
+        gaheent = "1"
+        gahlart = "1"
+        galung = "1"
+        gaab = "1"
+        gaext = "1"
+        ganeuro = "1"
+
+        mainInscl = mainInscl if mainInscl not in (None, "") else None
+        subInscl = subInscl if subInscl not in (None, "") else None
+
+        insert_query = """
+            INSERT INTO visit (
+                pcucode,
+                visitno,
+                visitdate,
+                pcucodeperson,
+                pid,
+                username,
+                flagservice,
+                dateupdate,
+                servicetype,
+                ipv4this,
+                receivepatient,
+                refer,
+                gaheent,
+                gahlart,
+                galung,
+                gaab,
+                gaext,
+                ganeuro,
+                hiciauthen_nhso,
+                claimcode_nhso,
+                datetime_claim,
+                main_inscl,
+                sub_inscl
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+
+        values = (
             pcucode,
             visitno,
             visitdate,
@@ -110,27 +158,31 @@ async def insert_visit(payload: InsertVisit):
             flagservice,
             dateupdate,
             servicetype,
-            ipv4this
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    values = (
-        pcucode,
-        visitno,
-        visitdate,
-        pcucodeperson,
-        pid,
-        username,
-        flagservice,
-        dateupdate,
-        servicetype,
-        ipv4this
-    )
+            ipv4this,
+            receivepatient,
+            refer,
+            gaheent,
+            gahlart,
+            galung,
+            gaab,
+            gaext,
+            ganeuro,
+            claimType,
+            claimCode,
+            datetime_claim,
+            mainInscl,
+            subInscl
+        )
 
-    try:
-        db_cursor.execute(insert_query, values)
-        connection.commit()
-    except Exception as e:
-        return {"error": f"Database insert failed: {str(e)}"}
+        print(values)
+
+        try:
+            db_cursor.execute(insert_query, values)
+            connection.commit()  # ✅ commit บน connection ใหม่แน่ ๆ
+        except Exception as e:
+            connection.rollback()
+            print(f"Database insert failed: {str(e)}")
+            return {"error": f"Database insert failed: {str(e)}"}
 
     return {
         "message": "Insert success",
@@ -147,6 +199,3 @@ async def insert_visit(payload: InsertVisit):
             "ipv4this": ipv4this
         }
     }
-
-
-

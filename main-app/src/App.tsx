@@ -25,10 +25,10 @@ function App() {
 
     useEffect(() => {
     // ป้องกันคลิกขวา
-    const handleContextMenu = (e : any) => {
-      e.preventDefault();
-      alert('คลิกขวาถูกปิดใช้งาน!');
-    };
+    // const handleContextMenu = (e : any) => {
+    //   e.preventDefault();
+    //   alert('คลิกขวาถูกปิดใช้งาน!');
+    // };
 
     // ป้องกัน Ctrl+C, Ctrl+U, Ctrl+Shift+I
     const handleKeyDown = (e : any) => {
@@ -42,12 +42,12 @@ function App() {
       }
     };
 
-    document.addEventListener('contextmenu', handleContextMenu);
+    // document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
 
     // ลบ event listener ตอน component ถูก unmount
     return () => {
-      document.removeEventListener('contextmenu', handleContextMenu);
+      // document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
