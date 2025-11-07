@@ -1,8 +1,8 @@
 from pydantic import BaseModel
 
 class EnqueueItem(BaseModel):
-    FULLNAME_TH: str
+    fname: str
 
 class InsertVisit(BaseModel):
     username: str
-    cid: str
+    pid: str

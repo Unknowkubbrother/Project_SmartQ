@@ -16,7 +16,7 @@ export interface Queue {
 
 interface ServerHistoryItem {
   Q_number: number;
-  FULLNAME_TH: string;
+  fname: string;
   service: string;
 }
 
@@ -105,7 +105,7 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
     if (wsUrl.startsWith('http://')) wsUrl = wsUrl.replace('http://', 'ws://');
     else if (wsUrl.startsWith('https://')) wsUrl = wsUrl.replace('https://', 'wss://');
     else wsUrl = 'ws://' + wsUrl;
-  wsUrl = wsUrl + '/api/ws' + `?role=${role}`;
+  wsUrl = wsUrl + '/api/ws_inspect' + `?role=${role}`;
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -124,7 +124,7 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
             const mapped: Queue[] = serverQueue.map((q: any) => ({
               id: String(q.Q_number),
               queueNumber: q.Q_number,
-              customerName: q.FULLNAME_TH,
+              customerName: q.fname,
               status: 'waiting',
               timestamp: new Date(),
               service: q.service,
@@ -142,7 +142,7 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
               const mappedCurrent: Queue = {
                 id: String(it.Q_number),
                 queueNumber: it.Q_number,
-                customerName: it.FULLNAME_TH,
+                customerName: it.fname,
                 status: 'calling',
                 timestamp: new Date(),
                 service: it.service,
@@ -218,7 +218,7 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
         await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ FULLNAME_TH: name, service: 'general' }),
+          body: JSON.stringify({ fname: name, service: 'general' }),
         });
         // backend will broadcast updated queue via websocket
         return;
@@ -249,7 +249,7 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
           const updatedQueue: Queue = {
             id: String(item.Q_number),
             queueNumber: item.Q_number,
-            customerName: item.FULLNAME_TH,
+            customerName: item.fname,
             status: 'calling',
             timestamp: new Date(),
             counter: undefined,
@@ -307,7 +307,7 @@ export const QueueProvider = ({ children }: { children: ReactNode }) => {
         fetch(backendUrl.replace(/\/$/, '') + '/api/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ Q_number: qToComplete.queueNumber, FULLNAME_TH: qToComplete.customerName, service: qToComplete.service || '' }),
+          body: JSON.stringify({ Q_number: qToComplete.queueNumber, fname: qToComplete.customerName, service: qToComplete.service || '' }),
         }).catch(e => console.error('Failed to notify backend of completion', e));
         return;
       }

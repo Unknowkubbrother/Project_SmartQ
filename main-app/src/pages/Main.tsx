@@ -1,10 +1,15 @@
-import { ThaiIDCardData } from "@/interfaces";
+import {useState} from "react";
+import { SmartQPayload } from "@/interfaces";
 import ThaiIDCard from "@/components/ThaiIDCard";
 import { Button } from "@/components/ui/button";
 import axios from "axios";
 import Swal from "sweetalert2";
+import ClaimUI from "@/components/ClaimUI";
 
-function Main({ cardData, photoData, onCancel, backendUrl, username }: { cardData: ThaiIDCardData | null; photoData: string | null; onCancel: () => void; backendUrl?: string | null, username?: string }) {
+function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPayload | null; onCancel: () => void; backendUrl?: string | null, username?: string}) {
+
+  const [claim, setClaim] = useState<boolean>(false);
+  
   const submitServiceSelection = () => {
     Swal.fire({
       title: "คุณต้องการยืนยันการเข้ารับบัตรคิวใช่หรือไม่?",
@@ -16,8 +21,7 @@ function Main({ cardData, photoData, onCancel, backendUrl, username }: { cardDat
       cancelButtonText: "ยกเลิก"
     }).then(async (result: any) => {
       if (result.isConfirmed) {
-        const endpointBase = (backendUrl && backendUrl.length > 0) ? backendUrl.replace(/\/$/, '') : 'http://localhost:8000';
-        const existsPerson = await axios.get(endpointBase + `/api/check_exist_person/${cardData?.CID}`);
+        const existsPerson = await axios.get(backendUrl + `/api/jhcis/check_exist_person/${cardData?.pid}`);
 
         if (!existsPerson.data.exists) {
           Swal.fire({
@@ -28,7 +32,7 @@ function Main({ cardData, photoData, onCancel, backendUrl, username }: { cardDat
           return;
         }
 
-        const insert_visit = await axios.post(endpointBase + '/api/insert_visit', { username: username || 'adm', cid: cardData?.CID });
+        const insert_visit = await axios.post(backendUrl + '/api/jhcis/insert_visit', { username: username || 'adm', pid: cardData?.pid });
 
         if (insert_visit.status !== 200) {
           Swal.fire({
@@ -39,7 +43,7 @@ function Main({ cardData, photoData, onCancel, backendUrl, username }: { cardDat
           return;
         }
 
-        await axios.post(endpointBase + '/api/enqueue', { FULLNAME_TH: cardData?.FULLNAME_TH })
+        await axios.post(backendUrl + '/api/inspect/enqueue', { fname: cardData?.fname })
           .then((_: any) => {
             Swal.fire({
               title: "สำเร็จ!",
@@ -100,20 +104,77 @@ function Main({ cardData, photoData, onCancel, backendUrl, username }: { cardDat
   }
 
   return (
-    <main className="w-full flex flex-col justify-between p-4 lg:gap-7">
-      <header className="w-full justify-center items-center flex flex-col p-4">
-        <img src="./logo.png" alt="" width={100} height={100} />
-        <h1 className="text-4xl">หน้ารับบัตรคิว</h1>
-        <h2 className="text-2xl mt-5">โรงพยาบาลส่งเสริมสุขภาพตำบลคลองบุหรี่</h2>
+    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex flex-col items-center p-6 lg:p-12">
+      {/* Header */}
+      <header className="w-full max-w-4xl">
+        <div className="rounded-xl overflow-hidden shadow-lg bg-gradient-to-r from-teal-500 to-cyan-500 text-white py-4 flex flex-col lg:flex-row items-center gap-4 p-6">
+          <img src="./logo.png" alt="logo" className="w-20 h-20 rounded-full bg-white/20 p-1" />
+          <div className="flex-1 text-center lg:text-left">
+            <h1 className="text-2xl lg:text-4xl font-semibold drop-shadow">หน้ารับบัตรคิว</h1>
+            <p className="mt-1 text-sm lg:text-base opacity-90">โรงพยาบาลส่งเสริมสุขภาพตำบลคลองบุหรี่</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm opacity-90">สถานะ</p>
+            <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20">
+              <span className="w-3 h-3 rounded-full bg-green-400 block" />
+              <span className="text-sm">พร้อมให้บริการ</span>
+            </div>
+          </div>
+        </div>
       </header>
 
-      <div className="w-full h-5"></div>
-      <hr className="my-4 border-gray-300 w-full" />
-      <ThaiIDCard cardData={cardData} photoData={photoData} />
-      <div className="w-full flex justify-around p-4 mt-3 gap-3" >
-        <Button variant="default" onClick={submitServiceSelection} size='lg' className="w-1/2 h-20">รับบัตรคิว</Button>
-        <Button variant="destructive" onClick={() => { handleOnCancel(); }} size='lg' className="w-1/2 h-20">ยกเลิก</Button>
-      </div>
+      {/* Content Card */}
+      <section className="w-full max-w-4xl mt-2">
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl py-1 px-4 lg:p-8 divide-y">
+          {/* Card top: info */}
+          <div className="pb-4">
+            <div className="w-full flex flex-col  gap-6">
+              {/* Left: ThaiIDCard box */}
+              <div className="w-full bg-white rounded-xl shadow-inner">
+                <ThaiIDCard cardData={cardData}/>
+              </div>
+
+              {/* Right: details and actions */}
+              <div className="w-full flex flex-col gap-4">
+
+                <div className="w-full flex flex-col sm:flex-row gap-3 mt-auto lg:justify-center lg:items-center">
+                  <Button
+                    variant="default"
+                    onClick={submitServiceSelection}
+                    size="lg"
+                    className=" bg-emerald-500 hover:bg-emerald-600 border-0 shadow-md lg:h-15 lg:w-48"
+                  >
+                    รับบัตรคิว
+                  </Button>
+
+                  <Button
+                    variant="destructive"
+                    onClick={handleOnCancel}
+                    size="lg"
+                    className="lg:h-15 lg:w-48"
+                  >
+                    ยกเลิก
+                  </Button>
+                </div>
+
+                <div className="text-xs text-slate-500 mt-2">
+                  หมายเหตุ: กรุณตรวจสอบข้อมูลก่อนยืนยันการรับบริการ
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* Claim UI overlay (keeps original behavior) */}
+      {!claim && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl">
+            <ClaimUI data={cardData as SmartQPayload} handleOnCancel={handleOnCancel} setClaim={setClaim} />
+          </div>
+        </div>
+      )}
     </main>
   )
 }

@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect,useRef } from "react";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { ThaiIDCardData } from "@/interfaces";
+import { SmartQPayload , ThaiIDCardData } from "@/interfaces";
 import "./App.css";
 import Home from "@/pages/Home";
-import Footer from "@/components/ui/Footer";
+// import Footer from "@/components/ui/Footer";
 import Main from "@/pages/Main";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "./components/ui/button";
@@ -22,16 +22,15 @@ import {
 
 
 function App() {
-  const [cardData, setCardData] = useState<ThaiIDCardData | null>(null);
-  const [incomingData, setIncomingData] = useState<ThaiIDCardData | null>(null);
+  const [cardData, setCardData] = useState<SmartQPayload | null>(null);
+  const [incomingData, setIncomingData] = useState<SmartQPayload | null>(null);
   const [, setErrorMessage] = useState<string | null>(null);
-  const [photoData, setPhotoData] = useState<string | null>(null);
-
   const [loadingMain, setLoadingMain] = useState(false);
   const [progress, setProgress] = useState(0);
 
   const [backendInput, setBackendInput] = useState('');
   const [backendUrl, setBackendUrl] = useState<string | null>(null);
+  const backendUrlRef = useRef<string | null>(null);
   const [backendConnecting, setBackendConnecting] = useState(false);
   const [backendError, setBackendError] = useState<string | null>(null);
   const [backendConnected, setBackendConnected] = useState(false);
@@ -43,7 +42,7 @@ function App() {
 
   const fetchUsernames = async (backendUrl : string) => {
     try {
-      const response = await axios.get(`${backendUrl}/api/usernames`);
+      const response = await axios.get(`${backendUrl}/api/jhcis/usernames`);
       setListUsernames(response.data);
     } catch (error) {
       console.error('Error fetching usernames:', error);
@@ -51,13 +50,12 @@ function App() {
   };
 
   useEffect(() => {
-    let unlistenData: UnlistenFn | null = null;
+    let unlistenThaiidData: UnlistenFn | null = null;
     let unlistenError: UnlistenFn | null = null;
-    let unlistenPhoto: UnlistenFn | null = null;
     let unlistenReader: UnlistenFn | null = null;
 
     const setupListeners = async () => {
-      unlistenData = await listen("thai_id_data", (event) => {
+      unlistenThaiidData = await listen("thai_id_data", async (event) => {
         const payload = event.payload;
         const dataLine = (payload as string).split("\n");
         const dataObj: any = {};
@@ -66,18 +64,23 @@ function App() {
           dataObj[key?.trim()] = value?.trim();
         });
 
-        setIncomingData(dataObj as ThaiIDCardData);
+
+        // Process the incoming data
+        const res = await axios.get(`${backendUrlRef.current}/api/nhso/smartcard_read`, { params: { readImageFlag: true } });
+
+        if (res.status !== 200) {
+          throw new Error("ไม่สามารถอ่านบัตรประชาชนได้");
+        }
+
+        const personalObj = {
+          ...res.data.data as SmartQPayload,
+          thaiIDCardData: dataObj as ThaiIDCardData
+        }
+        setIncomingData(personalObj);
         setReaderReady(true);
         setErrorMessage(null);
         setProgress(13);
         setLoadingMain(true);
-      });
-
-      unlistenPhoto = await listen("thai_id_photo", (event) => {
-        const payload = event.payload;
-        const photoBase64 = payload as string;
-        setReaderReady(true);
-        setPhotoData(photoBase64);
       });
 
       unlistenError = await listen("thai_id_error", (event) => {
@@ -93,19 +96,26 @@ function App() {
         setIncomingData(null);
         setLoadingMain(false);
         setCardData(null);
-        setPhotoData(null);
         setProgress(0);
       });
 
-      unlistenReader = await listen('thai_reader_ready', (event) => {
+      unlistenReader = await listen('thai_reader_ready', async (event) => {
         console.debug('Reader ready:', event.payload);
+
+        const res = await axios.get(`${backendUrl}/api/services`);
+
+        if (res.status !== 200) {
+          throw new Error("ไม่สามารถเชื่อมต่อ nhso agent ได้");
+        }
+
         setReaderReady(true);
         setErrorMessage(null);
       });
 
       try {
         const current: any = await invoke('check_reader');
-        if (current) {
+        const res = await axios.get(`${backendUrl}/api/services`);
+        if (current && res.status === 200) {
           setReaderReady(true);
           setErrorMessage(null);
         }
@@ -116,9 +126,8 @@ function App() {
 
     setupListeners();
     return () => {
-      if (unlistenData) unlistenData();
+      if (unlistenThaiidData) unlistenThaiidData();
       if (unlistenError) unlistenError();
-      if (unlistenPhoto) unlistenPhoto();
       if (unlistenReader) unlistenReader();
     };
   }, []);
@@ -127,21 +136,26 @@ function App() {
     setBackendConnecting(true);
     setBackendError(null);
     try {
-      const endpoint = url.replace(/\/$/, '') + '/api' + '/services';
-      const res = await fetch(endpoint, { method: 'GET' });
-      if (!res.ok) throw new Error('ไม่สามารถเชื่อมต่อ backend');
-      await res.json();
-      setBackendUrl(url.replace(/\/$/, ''));
+      const base = url.replace(/\/$/, "");
+      const res = await axios.get(base);
+
+      if (res.status !== 200) {
+        throw new Error("ไม่สามารถเชื่อมต่อ backend");
+      }
+      
+      setBackendUrl(base);
+      backendUrlRef.current = base;
       setBackendConnected(true);
-      fetchUsernames(url.replace(/\/$/, ''));
+      fetchUsernames(base);
     } catch (e: any) {
-      console.error('Backend connect failed', e);
-      setBackendError(e?.message || 'connection failed');
+      console.error("Backend connect failed", e);
+      const message =
+        e?.response?.data?.message || e?.message || "connection failed";
+      setBackendError(message);
       setBackendConnected(false);
       setListUsernames([]);
     } finally {
       setBackendConnecting(false);
-      setListUsernames([]);
     }
   };
 
@@ -170,7 +184,6 @@ function App() {
   const handleCancel = () => {
     setIncomingData(null);
     setCardData(null);
-    setPhotoData(null);
     setLoadingMain(false);
     setProgress(0);
     setErrorMessage(null);
@@ -178,24 +191,27 @@ function App() {
 
   const handleLogin = async () => {
     try {
-      const response = await axios.post(`${backendUrl}/api/login`, {
+      const response = await axios.post(`${backendUrl}/api/jhcis/login`, {
         username,
         password
       });
-      if (response.data.user) {
-        Swal.fire({
-          icon: 'success',
-          title: 'เข้าสู่ระบบสำเร็จ',
-          confirmButtonText: 'ตกลง'
-        });
-        setIsAuthenticated(true);
-      } else {
+
+      if (response.status !== 200) {
         Swal.fire({
           icon: 'error',
           title: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
           confirmButtonText: 'ตกลง'
         });
+        return;
       }
+      
+     Swal.fire({
+          icon: 'success',
+          title: 'เข้าสู่ระบบสำเร็จ',
+          confirmButtonText: 'ตกลง'
+        });
+      setIsAuthenticated(true);
+      
     } catch (error) {
       console.error('Login failed', error);
       Swal.fire({
@@ -217,8 +233,8 @@ function App() {
                 <label className="text-sm">Server URL</label>
                 <input value={backendInput} onChange={(e) => setBackendInput(e.target.value)} className="w-full border px-3 py-2 rounded" placeholder="http://192.168.0.158:8000" />
                 <div className="flex items-center gap-2 mt-3">
-                  <Button className="btn btn-primary" onClick={() => connectBackend(backendInput)} disabled={backendConnecting}>{backendConnecting ? 'กำลังเชื่อม...' : 'เชื่อมต่อ'}</Button>
-                  <Button className="btn" onClick={() => { setBackendInput(''); setBackendError(null); }}>ล้าง</Button>
+                  <Button className="btn btn-primary bg-emerald-500 hover:bg-emerald-600" onClick={() => connectBackend(backendInput)} disabled={backendConnecting}>{backendConnecting ? 'กำลังเชื่อม...' : 'เชื่อมต่อ'}</Button>
+                  <Button className="btn bg-rose-400 hover:bg-rose-500" onClick={() => { setBackendInput(''); setBackendError(null); }}>ล้าง</Button>
                 </div>
                 {backendError && <div className="text-sm text-red-600 mt-2">{backendError}</div>}
                 <div className="text-sm text-muted-foreground mt-2">ต้องระบุ URL ของ backend ก่อนใช้งาน (ข้อมูลจะไม่ถูกบันทึก)</div>
@@ -242,8 +258,7 @@ function App() {
               <h2 className="text-lg font-semibold mb-4">เข้าสู่ระบบ</h2>
               <div className="space-y-3">
                 <div>
-                  {/* <label className="text-sm">ชื่อผู้ใช้</label>
-                  <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full border px-3 py-2 rounded" /> */}
+                  <label className="text-sm">ชื่อผู้ใช้</label>
                   <Select value={username} onValueChange={setUsername}>
                     <SelectTrigger className="w-full px-3 py-2 ">
                       <SelectValue placeholder="Select a username" />
@@ -265,7 +280,7 @@ function App() {
                   <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border px-3 py-2 rounded" />
                 </div>
                 <div className="flex justify-end">
-                  <Button className="btn btn-primary" onClick={() => handleLogin()}>เข้าสู่ระบบ</Button>
+                  <Button className="btn btn-primary bg-emerald-500 hover:bg-emerald-600" onClick={() => handleLogin()}>เข้าสู่ระบบ</Button>
                 </div>
               </div>
             </div>
@@ -284,7 +299,6 @@ function App() {
         backendConnected && isAuthenticated && readerReady ? (
           <Main
             cardData={cardData}
-            photoData={photoData}
             onCancel={handleCancel}
             backendUrl={backendUrl}
             username={username}
@@ -306,7 +320,7 @@ function App() {
         )
       )}
 
-      <Footer />
+      {/* <Footer /> */}
     </main>
   );
 }

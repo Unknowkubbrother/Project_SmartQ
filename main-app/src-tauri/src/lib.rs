@@ -1,7 +1,6 @@
 // src-tauri/src/lib.rs
 mod idcard_reader;
 use std::thread;
-use tauri::Manager;
 
 #[tauri::command]
 fn check_reader() -> Result<Option<String>, String> {

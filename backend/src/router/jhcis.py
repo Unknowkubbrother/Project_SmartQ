@@ -1,5 +1,5 @@
 from src.database import db_cursor , connection
-from fastapi import APIRouter
+from fastapi import APIRouter , Response, status
 import numpy as np
 import socket
 from datetime import datetime
@@ -7,8 +7,8 @@ from src.models import InsertVisit
 
 jhcis_router = APIRouter()
 
-@jhcis_router.post("/login")
-async def login(payload: dict):
+@jhcis_router.post("/login" , status_code=status.HTTP_200_OK)
+async def login(payload: dict , response: Response):
     username = payload.get('username')
     password = payload.get('password')
     
@@ -17,9 +17,17 @@ async def login(payload: dict):
     user = db_cursor.fetchone()
     
     if user:
-        return {"message": "Login successful", "user": {"id": user[0], "username": user[1]}}
+        response.status_code = status.HTTP_200_OK
+        return {
+            "status": 200,
+            "message": "Login successful"
+        }
     else:
-        return {"error": "Invalid username or password"}
+        response.status_code = status.HTTP_401_UNAUTHORIZED
+        return {
+            "status": 401,
+            "message": "Invalid username or password"
+        }
 
 
 @jhcis_router.get("/usernames")
@@ -35,10 +43,10 @@ async def get_usernames():
 
 
 
-@jhcis_router.get("/check_exist_person/{cid}")
-async def check_exist_person(cid: str):
+@jhcis_router.get("/check_exist_person/{pid}")
+async def check_exist_person(pid: str):
     query = "SELECT COUNT(*) FROM person WHERE idcard = %s"
-    db_cursor.execute(query, (cid,))
+    db_cursor.execute(query, (pid,))
     count = db_cursor.fetchone()[0]
     exists = count > 0
     return {"exists": exists}
@@ -58,7 +66,7 @@ async def check_exist_person(cid: str):
 @jhcis_router.post("/insert_visit")
 async def insert_visit(payload: InsertVisit):
     username = payload.username
-    cid = payload.cid
+    pid = payload.pid
 
     db_cursor.execute("SELECT pcucode FROM user WHERE username = %s", (username,))
     user = db_cursor.fetchone()
@@ -71,7 +79,7 @@ async def insert_visit(payload: InsertVisit):
     if not office:
         return {"error": f"Office with offid={pcucode} not found in 'office' table"}
     
-    db_cursor.execute("SELECT pcucodeperson, pid FROM person WHERE idcard = %s", (cid,))
+    db_cursor.execute("SELECT pcucodeperson, pid FROM person WHERE idcard = %s", (pid,))
     person = db_cursor.fetchone()
     if not person:
         return {"error": "Person not found for this user"}

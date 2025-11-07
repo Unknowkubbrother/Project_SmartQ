@@ -1,4 +1,4 @@
-import { ThaiIDCardData } from "@/interfaces";
+import { SmartQPayload } from "@/interfaces";
 
 function PlaceholderPhoto() {
   return (
@@ -14,8 +14,8 @@ function PlaceholderPhoto() {
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex flex-col">
-      <span className="text-[10px] lg:text-lg text-sky-400 font-medium">{label}</span>
-      <span className="text-xs lg:text-[15px] text-slate-800">{value ?? "—"}</span>
+      <span className="text-[10px] lg:text-[17px] text-sky-400 font-medium">{label}</span>
+      <span className="text-xs lg:text-[15px] text-slate-800 lg:mt-2">{value ?? "—"}</span>
     </div>
   );
 }
@@ -25,14 +25,13 @@ const CIDFormat = (CID: string | null) => {
 }
 
 function ThaiIDCard({
-  cardData,
-  photoData,
+  cardData
 }: {
-  cardData: ThaiIDCardData | null;
-  photoData: string | null;
+  cardData: SmartQPayload | null;
 }) {
+
   return (
-    <main className="w-full lg:w-[70%] mx-auto p-2">
+    <main className="w-full mx-auto p-2">
       <section className="bg-white/80 backdrop-blur-sm border border-slate-200 rounded-xl shadow-md overflow-hidden relative">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
           <h3 className="text-base font-semibold text-slate-800">ข้อมูลส่วนตัว</h3>
@@ -44,27 +43,39 @@ function ThaiIDCard({
 
         <div className="px-4 pt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
           <div className="md:col-span-2 space-y-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Field label="หมายเลขบัตรประชาชน" value={CIDFormat(cardData?.CID || "")} />
-              <Field label="ชื่อ-นามสกุล" value={cardData?.FULLNAME_TH} />
+            <div className="flex gap-4 flex-wrap">
+              <Field label="หมายเลขบัตรประชาชน" value={CIDFormat(cardData?.pid || "")} />
+              <Field label="ชื่อ-นามสกุล" value={cardData?.thaiIDCardData.FULLNAME_TH} />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Field label="วันเกิด" value={(cardData?.BIRTH)} />
-              <Field label="ที่อยู่" value={cardData?.ADDRESS} />
+
+            <div className="flex gap-4 flex-wrap">
+              <Field label="วันเดือนปีเกิด" value={cardData?.thaiIDCardData.BIRTH} />
+              <Field label="เพศ" value={cardData?.thaiIDCardData.GENDER} />
+              <Field label="ศาสนา" value={cardData?.thaiIDCardData.RELIGION} />
+            </div>
+            
+            <div className="w-full">
+              <Field label="ที่อยู่" value={cardData?.thaiIDCardData.ADDRESS} />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Field label="วันที่ออกบัตร" value={(cardData?.ISSUE)} />
-              <Field label="วันที่บัตรหมดอายุ" value={(cardData?.EXPIRE)} />
+            <div className="flex gap-4 flex-wrap">
+              <Field label="วันที่ออกบัตร" value={(cardData?.thaiIDCardData.ISSUE)} />
+              <Field label="วันที่บัตรหมดอายุ" value={(cardData?.thaiIDCardData.EXPIRE)} />
             </div>
+
+            <div className="flex gap-4 flex-wrap">
+              <Field label="สิทธิการรักษาหลัก" value={(cardData?.mainInscl)} />
+              <Field label="สิทธิการรักษาย่อย" value={(cardData?.subInscl)} />
+            </div>
+
           </div>
 
           <div className="absolute top-16 right-12 md:relative md:top-0 md:right-0 flex flex-col items-center">
               <div className="relative">
-                {photoData ? (
+                {cardData?.image ? (
                   <img
-                    src={`data:image/jpeg;base64,${photoData}`}
+                    src={`data:image/jpeg;base64,${cardData?.image}`}
                     alt="ID Card Photo"
                     className="w-20 h-28 lg:w-24 lg:h-32 object-cover rounded-md border border-slate-200 shadow-sm"
                   />

@@ -182,7 +182,7 @@ const QueueList = () => {
             <h3 className="font-semibold mb-2">ประวัติการเรียก (ล่าสุด)</h3>
             <ul className="space-y-1 text-sm text-muted-foreground">
               {displayedHistory.slice(0, 8).map(h => (
-                <li key={h.Q_number}>{h.Q_number} — {h.FULLNAME_TH} — {h.service}</li>
+                <li key={h.Q_number}>{h.Q_number} — {h.fname} — {h.service}</li>
               ))}
             </ul>
           </Card>
