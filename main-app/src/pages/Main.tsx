@@ -1,15 +1,17 @@
-import {useState} from "react";
+import { useState } from "react";
 import { SmartQPayload } from "@/interfaces";
 import ThaiIDCard from "@/components/ThaiIDCard";
 import { Button } from "@/components/ui/button";
 import axios from "axios";
 import Swal from "sweetalert2";
 import ClaimUI from "@/components/ClaimUI";
+import MobileUI from "@/components/MobileUI";
 
-function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPayload | null; onCancel: () => void; backendUrl?: string | null, username?: string}) {
-
+function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPayload | null; onCancel: () => void; backendUrl?: string | null, username?: string }) {
+  const [mobileUI, setMobileUI] = useState<boolean>(false)
+  const [mobile, setMobile] = useState<string>("")
   const [claim, setClaim] = useState<boolean>(false);
-  
+
   const submitServiceSelection = () => {
     Swal.fire({
       title: "คุณต้องการยืนยันการเข้ารับบัตรคิวใช่หรือไม่?",
@@ -21,6 +23,35 @@ function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPa
       cancelButtonText: "ยกเลิก"
     }).then(async (result: any) => {
       if (result.isConfirmed) {
+        if (mobile.length !== 10) {
+          Swal.fire({
+            title: "เบอร์โทรศัพท์ไม่ถูกต้อง",
+            text: "กรุณาใส่เบอร์โทรศัพท์ให้ครบ 10 หลัก.",
+            icon: "error"
+          });
+          return;
+        }
+
+        if (!/^\d+$/.test(mobile)) {
+          Swal.fire({
+            title: "เบอร์โทรศัพท์ต้องเป็นตัวเลขเท่านั้น",
+            text: "กรุณาใส่เบอร์โทรศัพท์เป็นตัวเลขเท่านั้น.",
+            icon: "error"
+          });
+          return;
+        }
+
+        if (mobile[0] !== '0') {
+          Swal.fire({
+            title: "เบอร์โทรศัพท์ไม่ถูกต้อง",
+            text: "เบอร์โทรศัพท์ต้องขึ้นต้นด้วยเลข 0.",
+            icon: "error"
+          });
+          return;
+        }
+
+        setMobileUI(false);
+
         const existsPerson = await axios.get(backendUrl + `/api/jhcis/check_exist_person/${cardData?.pid}`);
 
         if (!existsPerson.data.exists) {
@@ -32,47 +63,47 @@ function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPa
           return;
         }
 
-        const insert_visit = await axios.post(backendUrl + '/api/jhcis/insert_visit', { username: username || 'adm', pid: cardData?.pid });
+        //   const insert_visit = await axios.post(backendUrl + '/api/jhcis/insert_visit', { username: username || 'adm', pid: cardData?.pid });
 
-        if (insert_visit.status !== 200) {
-          Swal.fire({
-            title: "เกิดข้อผิดพลาด!",
-            text: "ไม่สามารถบันทึกข้อมูลการเข้ารับบริการได้ กรุณาลองใหม่อีกครั้ง.",
-            icon: "error"
-          });
-          return;
-        }
+        //   if (insert_visit.status !== 200) {
+        //     Swal.fire({
+        //       title: "เกิดข้อผิดพลาด!",
+        //       text: "ไม่สามารถบันทึกข้อมูลการเข้ารับบริการได้ กรุณาลองใหม่อีกครั้ง.",
+        //       icon: "error"
+        //     });
+        //     return;
+        //   }
 
-        await axios.post(backendUrl + '/api/inspect/enqueue', { fname: cardData?.fname })
-          .then((_: any) => {
-            Swal.fire({
-              title: "สำเร็จ!",
-              text: "คุณได้ยืนยันการเข้ารับบัตรคิวเรียบร้อยแล้ว.",
-              icon: "success",
-              timer: 2000,
-              timerProgressBar: true,
-              showConfirmButton: false,
-            }).then(() => {
-              Swal.fire({
-                title: "กลับสู่หน้าหลัก",
-                timer: 3000,
-                timerProgressBar: true,
-                didOpen: () => {
-                  Swal.showLoading();
-                }
-              }).then(() => {
-                onCancel();
-              });
-            });
-          })
-          .catch((error: any) => {
-            Swal.fire({
-              title: "เกิดข้อผิดพลาด!",
-              text: "ไม่สามารถยืนยันการเข้ารับบัตรคิวได้ กรุณาลองใหม่อีกครั้ง.",
-              icon: "error"
-            });
-            console.error("Error submitting service:", error);
-          });
+        //   await axios.post(backendUrl + '/api/inspect/enqueue', { fname: cardData?.fname })
+        //     .then((_: any) => {
+        //       Swal.fire({
+        //         title: "สำเร็จ!",
+        //         text: "คุณได้ยืนยันการเข้ารับบัตรคิวเรียบร้อยแล้ว.",
+        //         icon: "success",
+        //         timer: 2000,
+        //         timerProgressBar: true,
+        //         showConfirmButton: false,
+        //       }).then(() => {
+        //         Swal.fire({
+        //           title: "กลับสู่หน้าหลัก",
+        //           timer: 3000,
+        //           timerProgressBar: true,
+        //           didOpen: () => {
+        //             Swal.showLoading();
+        //           }
+        //         }).then(() => {
+        //           onCancel();
+        //         });
+        //       });
+        //     })
+        //     .catch((error: any) => {
+        //       Swal.fire({
+        //         title: "เกิดข้อผิดพลาด!",
+        //         text: "ไม่สามารถยืนยันการเข้ารับบัตรคิวได้ กรุณาลองใหม่อีกครั้ง.",
+        //         icon: "error"
+        //       });
+        //       console.error("Error submitting service:", error);
+        //     });
       }
     });
   }
@@ -131,7 +162,7 @@ function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPa
             <div className="w-full flex flex-col  gap-6">
               {/* Left: ThaiIDCard box */}
               <div className="w-full bg-white rounded-xl shadow-inner">
-                <ThaiIDCard cardData={cardData}/>
+                <ThaiIDCard cardData={cardData} />
               </div>
 
               {/* Right: details and actions */}
@@ -140,7 +171,7 @@ function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPa
                 <div className="w-full flex flex-col sm:flex-row gap-3 mt-auto lg:justify-center lg:items-center">
                   <Button
                     variant="default"
-                    onClick={submitServiceSelection}
+                    onClick={() => setMobileUI(true)}
                     size="lg"
                     className=" bg-emerald-500 hover:bg-emerald-600 border-0 shadow-md lg:h-15 lg:w-48"
                   >
@@ -175,6 +206,16 @@ function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPa
           </div>
         </div>
       )}
+
+      {mobileUI && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl">
+            <MobileUI mobile={mobile} setMobile={setMobile} setMobileUI={setMobileUI} submitServiceSelection={submitServiceSelection} />
+          </div>
+        </div>
+        
+      )}
+
     </main>
   )
 }

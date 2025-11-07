@@ -22,6 +22,36 @@ import {
 
 
 function App() {
+
+    useEffect(() => {
+    // ป้องกันคลิกขวา
+    const handleContextMenu = (e : any) => {
+      e.preventDefault();
+      alert('คลิกขวาถูกปิดใช้งาน!');
+    };
+
+    // ป้องกัน Ctrl+C, Ctrl+U, Ctrl+Shift+I
+    const handleKeyDown = (e : any) => {
+      if (e.ctrlKey && (e.key === 'c' || e.key === 'u' || e.key === 's')) {
+        e.preventDefault();
+        alert('ไม่สามารถคัดลอกหรือดู source ได้!');
+      }
+      if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+        e.preventDefault();
+        alert('ไม่อนุญาต DevTools!');
+      }
+    };
+
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('keydown', handleKeyDown);
+
+    // ลบ event listener ตอน component ถูก unmount
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   const [cardData, setCardData] = useState<SmartQPayload | null>(null);
   const [incomingData, setIncomingData] = useState<SmartQPayload | null>(null);
   const [, setErrorMessage] = useState<string | null>(null);
@@ -101,21 +131,13 @@ function App() {
 
       unlistenReader = await listen('thai_reader_ready', async (event) => {
         console.debug('Reader ready:', event.payload);
-
-        const res = await axios.get(`${backendUrl}/api/services`);
-
-        if (res.status !== 200) {
-          throw new Error("ไม่สามารถเชื่อมต่อ nhso agent ได้");
-        }
-
         setReaderReady(true);
         setErrorMessage(null);
       });
 
       try {
         const current: any = await invoke('check_reader');
-        const res = await axios.get(`${backendUrl}/api/services`);
-        if (current && res.status === 200) {
+        if (current) {
           setReaderReady(true);
           setErrorMessage(null);
         }

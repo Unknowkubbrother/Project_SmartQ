@@ -71,7 +71,7 @@ function ThaiIDCard({
 
           </div>
 
-          <div className="absolute top-16 right-12 md:relative md:top-0 md:right-0 flex flex-col items-center">
+          <div className="absolute top-16 right-8 md:relative md:top-0 md:right-0 flex flex-col items-center">
               <div className="relative">
                 {cardData?.image ? (
                   <img
