@@ -19,6 +19,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
 
   const [services, setServices] = useState<Record<string, ServiceInfo> | null>(null);
   const [selectedCounter, setSelectedCounter] = useState<string | null>(null);
+  const [transferTarget, setTransferTarget] = useState<string | null>(null);
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const serviceName = propServiceName || params.get('service') || 'inspect';
@@ -52,6 +53,26 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
 
     // ส่ง counter ผ่าน context callNextQueue
     if (callNextQueue) await callNextQueue(selectedCounter);
+  };
+
+  // ส่งต่อบริการ: enqueue ที่บริการอื่น แล้ว complete คิวปัจจุบัน
+  const handleTransfer = async () => {
+    if (!transferTarget) return alert('กรุณาเลือกบริการเป้าหมาย');
+    if (!currentQueue) return alert('ไม่มีคิวปัจจุบันที่จะส่งต่อ');
+    try {
+      const base = backendUrl ? backendUrl.replace(/\/$/, '') : '';
+      const endpoint = `${base}/api/queue/${transferTarget}/enqueue`;
+      await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ FULLNAME_TH: currentQueue.customerName }),
+      });
+      // หลังจากส่งต่อสำเร็จ ทำการ complete คิวปัจจุบัน
+      if (currentQueue) completeQueue(currentQueue.id);
+    } catch (e) {
+      console.error('Failed to transfer', e);
+      alert('ส่งต่อไม่สำเร็จ โปรดลองอีกครั้ง');
+    }
   };
 
   const handleCallAgain = async () => {
@@ -195,6 +216,30 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
             เสร็จสิ้น
           </Button>
         </div>
+
+        {/* Transfer to another service */}
+        <Card className="mb-6 p-4">
+          <h3 className="font-semibold mb-2">ส่งต่อผู้ใช้ไปยังบริการอื่น</h3>
+          <div className="flex items-center gap-3">
+            <select
+              className="px-3 py-2 border rounded"
+              value={transferTarget ?? ''}
+              onChange={(e) => setTransferTarget(e.target.value || null)}
+            >
+              <option value="">-- เลือกบริการ --</option>
+              {services && Object.keys(services).map(key => (
+                // ไม่ให้เลือกบริการเดียวกับหน้าปัจจุบัน
+                key === serviceName ? null : (
+                  <option key={key} value={key}>{(services as any)[key].name || key}</option>
+                )
+              ))}
+            </select>
+
+            <Button onClick={handleTransfer} disabled={!transferTarget || !currentQueue}>
+              ส่งต่อไปยังบริการอื่น
+            </Button>
+          </div>
+        </Card>
 
         {/* Footer Controls */}
         <div className="flex items-center justify-between">
