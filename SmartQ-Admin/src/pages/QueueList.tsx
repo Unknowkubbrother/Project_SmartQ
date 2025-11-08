@@ -132,7 +132,7 @@ const QueueList = () => {
                   <th className="px-6 py-4 text-left text-sm font-semibold">หมายเลขคิว</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold">ชื่อผู้ใช้</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold">สถานะ</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold">ช่องบริการ</th>
+                  {/* <th className="px-6 py-4 text-left text-sm font-semibold">ช่องบริการ</th> */}
                   <th className="px-6 py-4 text-left text-sm font-semibold">เวลา</th>
                 </tr>
               </thead>
@@ -159,13 +159,13 @@ const QueueList = () => {
                     <td className="px-6 py-4">
                       {getStatusBadge(rowStatus)}
                     </td>
-                    <td className="px-6 py-4">
+                    {/* <td className="px-6 py-4">
                       {queue.service ? (
                         <span className="font-semibold text-primary">{queue.service}</span>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
-                    </td>
+                    </td> */}
                     <td className="px-6 py-4 text-sm text-muted-foreground">
                       {queue.timestamp.toLocaleTimeString('th-TH', { 
                         hour: '2-digit', 

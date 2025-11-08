@@ -77,13 +77,13 @@ export const QueueProvider = ({ children, serviceName = 'inspect' }: { children:
       ws.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data);
-          if (msg.type === 'queue_update') {
+            if (msg.type === 'queue_update') {
             const mapped: Queue[] = (msg.queue || []).map((q: any) => ({
               id: String(q.Q_number),
               queueNumber: q.Q_number,
               customerName: q.FULLNAME_TH,
               status: 'waiting',
-              timestamp: new Date(),
+              timestamp: q.timestamp ? new Date(q.timestamp) : new Date(),
               service: q.service,
               counter: q.counter,
             }));
@@ -104,7 +104,7 @@ export const QueueProvider = ({ children, serviceName = 'inspect' }: { children:
                 queueNumber: it.Q_number,
                 customerName: it.FULLNAME_TH,
                 status: 'calling',
-                timestamp: new Date(),
+                timestamp: it.timestamp ? new Date(it.timestamp) : new Date(),
                 service: it.service,
                 counter: it.counter,
               });

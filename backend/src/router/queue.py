@@ -1,10 +1,12 @@
 from collections import deque
+from datetime import datetime
 from src.models.models import EnqueueItem
 from gtts import gTTS
 import base64, io
 from typing import List
 from fastapi import WebSocket, WebSocketDisconnect, APIRouter
 from src.config.config import get as config
+from zoneinfo import ZoneInfo
 
 queue_router = APIRouter()
 
@@ -106,11 +108,13 @@ async def enqueue_item(service: str, item: EnqueueItem):
     manager.counter_number += 1
     # ถ้า client ส่ง counter มาให้บันทึกด้วย
     counter = getattr(item, "counter", None)
-
+    thailand_tz = ZoneInfo("Asia/Bangkok")
+    # record enqueue time so clients can show real enqueue timestamp
     data = {
         "Q_number": manager.counter_number,
         "FULLNAME_TH": item.FULLNAME_TH,
         "counter": counter,
+        "timestamp": datetime.now(thailand_tz).isoformat()
     }
     manager.queue.append(data)
     await manager.broadcast({"type": "queue_update", "queue": list(manager.queue)})
@@ -273,7 +277,12 @@ async def transfer_item(service: str, payload: dict):
 
     # 1) enqueue into target manager
     target_manager.counter_number += 1
-    new_item = {"Q_number": target_manager.counter_number, "FULLNAME_TH": fullname}
+    thailand_tz = ZoneInfo("Asia/Bangkok")
+    new_item = {
+        "Q_number": target_manager.counter_number,
+        "FULLNAME_TH": fullname,
+        "timestamp": datetime.now(thailand_tz).isoformat()
+    }
     target_manager.queue.append(new_item)
 
     # 2) mark source history item as transferred

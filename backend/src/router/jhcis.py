@@ -196,6 +196,8 @@ async def insert_visit(payload: InsertVisit):
             "flagservice": flagservice,
             "dateupdate": dateupdate,
             "servicetype": servicetype,
-            "ipv4this": ipv4this
+            "ipv4this": ipv4this,
+            "mainInscl": mainInscl,
+            "subInscl": subInscl
         }
     }
