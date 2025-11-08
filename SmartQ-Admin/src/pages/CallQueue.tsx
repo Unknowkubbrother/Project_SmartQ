@@ -23,6 +23,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
   const [completedCandidates, setCompletedCandidates] = useState<Array<{ Q_number: number; FULLNAME_TH: string; service?: string }>>([]);
   const [selectedCompletedQnum, setSelectedCompletedQnum] = useState<number | null>(null);
   const [allowTransferSelection, setAllowTransferSelection] = useState<boolean>(false);
+  const [isSkipping, setIsSkipping] = useState<boolean>(false);
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const serviceName = propServiceName || params.get('service') || 'inspect';
@@ -101,6 +102,39 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
       console.error('Failed to transfer', e);
       alert('ส่งต่อไม่สำเร็จ โปรดลองอีกครั้ง');
     }
+  };
+
+  // ข้ามคิว: เอาผู้ใช้ปัจจุบันไปต่อท้ายคิว (enqueue) แล้วทำการ complete คิวปัจจุบัน
+  const handleSkip = async () => {
+    if (!currentQueue) return alert('ไม่มีคิวที่กำลังเรียกเพื่อข้าม');
+    if (!backendUrl) return alert('ยังไม่ได้ตั้งค่า backend URL');
+    setIsSkipping(true);
+    try {
+      const base = backendUrl.replace(/\/$/, '');
+      // 1) enqueue the same person to the same service -> goes to back of queue
+      await fetch(`${base}/api/queue/${serviceName}/enqueue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ FULLNAME_TH: currentQueue.customerName }),
+      });
+
+      // 2) complete the current queue item so it's removed from current
+      await fetch(`${base}/api/queue/${serviceName}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Q_number: currentQueue.queueNumber, FULLNAME_TH: currentQueue.customerName, service: serviceName }),
+      });
+
+      // reset local transfer-selection state (if any)
+      setAllowTransferSelection(false);
+      setCompletedCandidates(prev => prev.filter(c => c.Q_number !== currentQueue.queueNumber));
+
+      alert('ข้ามคิวเรียบร้อยแล้ว ผู้ใช้ถูกนำไปต่อท้ายคิว');
+    } catch (e) {
+      console.error('Skip failed', e);
+      alert('ไม่สามารถข้ามคิวได้ กรุณาลองอีกครั้ง');
+    }
+    setIsSkipping(false);
   };
 
   const handleCallAgain = async () => {
@@ -210,8 +244,8 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           )}
         </Card>
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+  {/* Action Buttons */}
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Button
             onClick={handleCallNext}
             size="lg"
@@ -242,6 +276,16 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           >
             <CheckCircle className="w-6 h-6 mr-2" />
             เสร็จสิ้น
+          </Button>
+
+          <Button
+            onClick={handleSkip}
+            disabled={!currentQueue || isSkipping}
+            variant="ghost"
+            size="lg"
+            className="h-20 text-lg font-semibold shadow-sm"
+          >
+            ข้ามคิว
           </Button>
         </div>
 
