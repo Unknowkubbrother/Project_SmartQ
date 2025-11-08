@@ -8,6 +8,14 @@ from src.config.config import get as config
 
 queue_router = APIRouter()
 
+# simple in-memory operator registry: operator_id -> display name
+operator_registry: dict[str, str] = {}
+
+def get_operator_name(operator_id: str | None) -> str | None:
+    if not operator_id:
+        return None
+    return operator_registry.get(operator_id)
+
 
 class QueueManager:
     def __init__(self, name: str, counters: List[dict]):
@@ -56,7 +64,15 @@ class QueueManager:
     async def send_initial_state(self, websocket: WebSocket):
         await websocket.send_json({"type": "queue_update", "queue": list(self.queue)})
         await websocket.send_json({"type": "current", "item": self.current})
-        await websocket.send_json({"type": "history", "history": self.history})
+        # include completed_by_name in the history items
+        history_with_names = []
+        for h in self.history:
+            h_copy = dict(h)
+            cb = h_copy.get("completed_by")
+            if cb:
+                h_copy["completed_by_name"] = get_operator_name(cb) or cb
+            history_with_names.append(h_copy)
+        await websocket.send_json({"type": "history", "history": history_with_names})
         await websocket.send_json({
             "type": "status",
             "online": len(self.active_connections),
@@ -162,7 +178,15 @@ async def complete_item(service: str, payload: dict):
         manager.history = manager.history[:50]
 
     await manager.broadcast({"type": "complete", "Q_number": qnum})
-    await manager.broadcast({"type": "history", "history": manager.history})
+    # broadcast history with names
+    history_with_names = []
+    for h in manager.history:
+        h_copy = dict(h)
+        cb = h_copy.get("completed_by")
+        if cb:
+            h_copy["completed_by_name"] = get_operator_name(cb) or cb
+        history_with_names.append(h_copy)
+    await manager.broadcast({"type": "history", "history": history_with_names})
     await manager.broadcast_status()
 
     if manager.current and manager.current.get("Q_number") == qnum:
@@ -256,7 +280,15 @@ async def transfer_item(service: str, payload: dict):
     await target_manager.broadcast({"type": "queue_update", "queue": list(target_manager.queue)})
     await target_manager.broadcast_status()
 
-    await manager.broadcast({"type": "history", "history": manager.history})
+    # broadcast history with names for source
+    history_with_names = []
+    for h in manager.history:
+        h_copy = dict(h)
+        cb = h_copy.get("completed_by")
+        if cb:
+            h_copy["completed_by_name"] = get_operator_name(cb) or cb
+        history_with_names.append(h_copy)
+    await manager.broadcast({"type": "history", "history": history_with_names})
     await manager.broadcast_status()
 
     return {"message": "transferred", "from": {"service": service, "Q_number": qnum}, "to": {"service": target, "Q_number": new_item["Q_number"]}}
@@ -277,3 +309,22 @@ async def websocket_endpoint(websocket: WebSocket, service: str):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast_status()
+
+
+@queue_router.post('/operator/register')
+async def register_operator(payload: dict):
+    """Register an operator id -> display name mapping.
+
+    Payload: { "operatorId": "<id>", "name": "Display Name" }
+    """
+    operator_id = payload.get('operatorId')
+    name = payload.get('name')
+    if not operator_id or not name:
+        return {"error": "operatorId and name required"}
+    operator_registry[operator_id] = name
+    return {"message": "registered", "operatorId": operator_id, "name": name}
+
+
+@queue_router.get('/operator/{operator_id}')
+def get_operator(operator_id: str):
+    return {"operatorId": operator_id, "name": operator_registry.get(operator_id)}

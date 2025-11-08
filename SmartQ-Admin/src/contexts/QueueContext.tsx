@@ -21,6 +21,7 @@ interface ServerHistoryItem {
   counter?: string; // 👈 เพิ่ม counter
   transferred?: boolean;
   completed_by?: string;
+  completed_by_name?: string;
 }
 
 interface QueueContextType {

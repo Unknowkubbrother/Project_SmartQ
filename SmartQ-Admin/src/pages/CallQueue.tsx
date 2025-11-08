@@ -15,7 +15,7 @@ interface ServiceInfo {
 
 const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = {}) => {
   const { currentQueue, callNextQueue, callAgain, completeQueue, serverStatus, setMute, history } = useQueue();
-  const { backendUrl, operatorId } = useBackend();
+  const { backendUrl, operatorId, operatorName } = useBackend();
 
   const [services, setServices] = useState<Record<string, ServiceInfo> | null>(null);
   const [selectedCounter, setSelectedCounter] = useState<string | null>(null);
@@ -72,9 +72,9 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
     }
 
     // build candidate list: include just-completed first, then history items completed by this operator
-    const justCompleted = { Q_number: currentQueue.queueNumber, FULLNAME_TH: currentQueue.customerName, service: currentQueue.service, completed_by: undefined };
-    // prefer server history entries that were completed by this operator
-    const operatorHistory = (history || []).filter((h: any) => h.completed_by === (window.sessionStorage.getItem('operatorId') || ''));
+  const justCompleted = { Q_number: currentQueue.queueNumber, FULLNAME_TH: currentQueue.customerName, service: currentQueue.service, completed_by: operatorId, completed_by_name: operatorName };
+  // prefer server history entries that were completed by this operator
+  const operatorHistory = (history || []).filter((h: any) => h.completed_by === operatorId);
     const mergedRaw = [justCompleted, ...operatorHistory].filter((v: any, i: number, a: any[]) => a.findIndex(x => x.Q_number === v.Q_number) === i);
     const merged = mergedRaw.filter((x: any) => !x.transferred);
     setCompletedCandidates(merged);
@@ -333,7 +333,9 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
               >
                 <option value="">-- เลือกรายชื่อผู้ที่เสร็จแล้ว --</option>
                 {completedCandidates.map(c => (
-                  <option key={c.Q_number} value={c.Q_number}>{c.Q_number} — {c.FULLNAME_TH}</option>
+                  <option key={c.Q_number} value={c.Q_number}>
+                    {c.Q_number} — {c.FULLNAME_TH}{(c as any).completed_by_name ? ` (โดย ${(c as any).completed_by_name})` : ''}
+                  </option>
                 ))}
               </select>
 

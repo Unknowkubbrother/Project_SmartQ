@@ -24,8 +24,9 @@ const tryConnect = async (url: string, timeout = 4000) => {
 };
 
 const BackendSetup: React.FC = () => {
-  const { setBackendUrl } = useBackend();
+  const { setBackendUrl, setOperatorName } = useBackend();
   const [url, setUrl] = useState<string>('');
+  const [operatorName, setLocalOperatorName] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -38,6 +39,22 @@ const BackendSetup: React.FC = () => {
     if (result.ok) {
       // Set in-memory backend URL for this session only
       setBackendUrl(result.url);
+      try {
+        // register operator name on server so others see it
+        const opId = (window.sessionStorage.getItem('operatorId') as string) || '';
+        if (opId && operatorName) {
+          await fetch(result.url.replace(/\/$/, '') + '/api/operator/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ operatorId: opId, name: operatorName }),
+          });
+          // persist locally and in context
+          sessionStorage.setItem('operatorName', operatorName);
+          setOperatorName && setOperatorName(operatorName);
+        }
+      } catch (e) {
+        console.warn('operator register failed', e);
+      }
       navigate('/start', { replace: true });
     } else {
       setError('ไม่สามารถเชื่อมต่อได้: ' + (result as any).error);
@@ -56,6 +73,11 @@ const BackendSetup: React.FC = () => {
           <div className="mb-4">
             <label className="block text-sm font-medium text-muted-foreground mb-2">Backend URL</label>
             <Input value={url} onChange={(e) => setUrl((e.target as HTMLInputElement).value)} placeholder="http://localhost:8000" />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">ชื่อผู้ปฏิบัติงาน (จะแสดงให้ผู้อื่นเห็น)</label>
+            <Input value={operatorName} onChange={(e) => setLocalOperatorName((e.target as HTMLInputElement).value)} placeholder="เช่น พนักงาน A" />
           </div>
 
           {error && <p className="text-sm text-destructive mb-4">{error}</p>}

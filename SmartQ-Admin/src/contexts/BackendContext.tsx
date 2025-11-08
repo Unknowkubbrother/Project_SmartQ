@@ -5,6 +5,8 @@ type BackendContextType = {
   backendUrl: string | null;
   setBackendUrl: (url: string | null) => void;
   operatorId: string;
+  operatorName?: string | null;
+  setOperatorName?: (name: string | null) => void;
 };
 
 const BackendContext = React.createContext<BackendContextType | undefined>(undefined);
@@ -23,8 +25,15 @@ export const BackendProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return `op-${Date.now()}-${Math.floor(Math.random()*10000)}`;
     }
   });
+  const [operatorName, setOperatorName] = React.useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem('operatorName');
+    } catch (e) {
+      return null;
+    }
+  });
   return (
-    <BackendContext.Provider value={{ backendUrl, setBackendUrl, operatorId }}>
+    <BackendContext.Provider value={{ backendUrl, setBackendUrl, operatorId, operatorName, setOperatorName }}>
       {children}
     </BackendContext.Provider>
   );
