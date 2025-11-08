@@ -18,6 +18,7 @@ interface ServiceState {
   next: any | null;
   queues: any[];
   muted?: boolean;
+  isCalling?: boolean; // เพิ่ม flag สำหรับ animation
 }
 
 const DisplayBoard: React.FC = () => {
@@ -25,6 +26,7 @@ const DisplayBoard: React.FC = () => {
   const [stateMap, setStateMap] = useState<Record<string, ServiceState>>({});
   const wsRefs = useRef<Record<string, WebSocket | null>>({});
   const audioRefs = useRef<Record<string, { audio: HTMLAudioElement | null; url: string | null }>>({});
+  const callTimersRef = useRef<Record<string, number | null>>({}); // เก็บ timers ของ animation
 
   const { backendUrl } = useBackend();
 
@@ -62,24 +64,58 @@ const DisplayBoard: React.FC = () => {
         ws.onmessage = (ev) => {
           try {
             const msg = JSON.parse(ev.data);
+            // ถ้าเป็นการอัปเดต current / audio ให้ตั้ง isCalling = true เพื่อแสดง animation ชั่วคราว
+            const triggerCallAnimation = (duration = 2500) => {
+              // เคลียร์ timer เก่า
+              if (callTimersRef.current[service]) {
+                clearTimeout(callTimersRef.current[service] as number);
+                callTimersRef.current[service] = null;
+              }
+              setStateMap(prev => {
+                const cur = prev[service] || { name: service, label: s.label || service, current: null, next: null, queues: [], muted: false };
+                return { ...prev, [service]: { ...cur, isCalling: true } };
+              });
+              // ปิด animation หลังจาก duration
+              callTimersRef.current[service] = window.setTimeout(() => {
+                setStateMap(prev => {
+                  const st = prev[service];
+                  if (!st) return prev;
+                  return { ...prev, [service]: { ...st, isCalling: false } };
+                });
+                callTimersRef.current[service] = null;
+              }, duration);
+            };
+
             setStateMap(prev => {
               const cur = prev[service] || { name: service, label: s.label || service, current: null, next: null, queues: [], muted: false };
               if (msg.type === 'queue_update') {
                 const queues = msg.queue || [];
-                // next is first waiting
                 const next = queues.find((q: any) => true) || null;
                 return { ...prev, [service]: { ...cur, queues, next } };
               } else if (msg.type === 'current') {
-                return { ...prev, [service]: { ...cur, current: msg.item || null } };
+                // ถ้ามี item ใหม่ ให้ trigger animation
+                const newState = { ...cur, current: msg.item || null };
+                if (msg.item) {
+                  // ติด flag isCalling เพื่อเล่น animation
+                  (newState as ServiceState).isCalling = true;
+                }
+                return { ...prev, [service]: newState };
               } else if (msg.type === 'status') {
                 return { ...prev, [service]: { ...cur, muted: msg.muted } };
               }
               return prev;
             });
 
+            if (msg.type === 'current' && msg.item) {
+              triggerCallAnimation();
+            }
+
             // play audio messages on display (per-service). stop prior audio for this service first.
             if (msg.type === 'audio') {
               try {
+                // trigger animation เมื่อมี audio เรียก
+                triggerCallAnimation(3000);
+
                 const entry = audioRefs.current[service] || { audio: null, url: null };
                 if (entry.audio) {
                   try { entry.audio.pause(); entry.audio.currentTime = 0; } catch (e) {}
@@ -123,6 +159,22 @@ const DisplayBoard: React.FC = () => {
 
     return () => {
       Object.values(wsRefs.current).forEach((w) => w && w.close());
+      // เคลียร์ timers animation
+      Object.values(callTimersRef.current).forEach(t => t && clearTimeout(t));
+      callTimersRef.current = {};
+      // ปิด audio และ revoke urls
+      Object.values(audioRefs.current).forEach(entry => {
+        try {
+          if (entry?.audio) {
+            entry.audio.pause();
+            entry.audio = null;
+          }
+          if (entry?.url) {
+            URL.revokeObjectURL(entry.url);
+            entry.url = null;
+          }
+        } catch (e) {}
+      });
     };
   }, [services]);
 
@@ -137,67 +189,74 @@ const DisplayBoard: React.FC = () => {
           <p className="mt-3 text-sm sm:text-base text-slate-600">แสดงสถานะคิวปัจจุบันของแต่ละบริการ — ธีมโรงพยาบาล สีฟ้า ออกแบบให้ตอบสนองหน้าจอทุกขนาด</p>
         </header>
 
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <section className="grid grid-cols-2 gap-6">
           {services.map(s => {
             const st = stateMap[s.name];
             const current = st?.current;
             const next = st?.next;
 
             return (
-              <Card key={s.name} className="p-4 sm:p-5 border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-white/80">
-                <div className="flex items-start justify-between gap-3">
+                <Card key={s.name} className="p-6 sm:p-7 border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-white/80 h-[300px] flex flex-col">
+                <div className="flex-1 flex flex-col justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h3 className="text-lg sm:text-xl font-semibold text-sky-700 truncate">{s.label || s.name}</h3>
-                        <p className="text-xs text-slate-500 truncate">บริการ: {s.name}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          st?.muted ? 'bg-rose-100 text-rose-700' : 'bg-sky-100 text-sky-700'
-                        }`}>
-                          {st?.muted ? <VolumeX className="w-3 h-3 mr-1" /> : <Clock className="w-3 h-3 mr-1" />}
-                          {st?.muted ? 'ปิดเสียง' : 'เสียงเปิด'}
-                        </span>
-                      </div>
+                    <div>
+                      <h3 className="text-xl sm:text-2xl font-semibold text-sky-700 truncate">{s.label || s.name}</h3>
+                      <p className="text-sm text-slate-500 truncate">บริการ: {s.name}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium ${
+                      st?.muted ? 'bg-rose-100 text-rose-700' : 'bg-sky-100 text-sky-700'
+                      }`}>
+                      {st?.muted ? <VolumeX className="w-4 h-4 mr-1" /> : <Clock className="w-4 h-4 mr-1" />}
+                      {st?.muted ? 'ปิดเสียง' : 'เสียงเปิด'}
+                      </span>
+                    </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="flex-shrink-0 w-28 h-28 sm:w-32 sm:h-32 rounded-lg bg-gradient-to-br from-sky-600 to-sky-500 text-white flex items-center justify-center shadow-inner">
-                        {current ? (
-                          <div className="text-center">
-                            <div className="text-3xl sm:text-4xl font-extrabold tracking-tight">{current.Q_number}</div>
-                            <div className="text-xs sm:text-sm opacity-90">{current.counter ? `ช่อง ${current.counter}` : 'รอเรียก'}</div>
-                          </div>
-                        ) : (
-                          <div className="text-center text-sky-100">
-                            <div className="text-xl sm:text-2xl font-semibold">-</div>
-                            <div className="text-xs sm:text-sm">ไม่มีคิว</div>
-                          </div>
-                        )}
+                    <div className="flex items-center gap-6">
+                    <div
+                      // ใส่ animation เมื่อ isCalling = true
+                      className={`flex-shrink-0 w-36 h-36 sm:w-44 sm:h-44 rounded-xl bg-gradient-to-br from-sky-600 to-sky-500 text-white flex items-center justify-center shadow-inner transition-transform duration-300 ${
+                      st?.isCalling ? 'scale-105 ring-4 ring-sky-300/60' : ''
+                      }`}
+                    >
+                      {current ? (
+                      <div className="text-center">
+                        <div className="text-4xl sm:text-5xl font-extrabold tracking-tight">{current.Q_number}</div>
+                        <div className="text-sm sm:text-base opacity-95">{current.counter ? `ช่อง ${current.counter}` : 'รอเรียก'}</div>
                       </div>
-
-                      <div className="flex-1">
-                        <div className="text-sm text-slate-700 mb-1 font-medium">คิวปัจจุบัน</div>
-                        {current ? (
-                          <div className="text-sm sm:text-base text-slate-800 mb-2">{current.FULLNAME_TH}</div>
-                        ) : (
-                          <div className="text-sm text-slate-400 mb-2">ไม่มีคิวกำลังเรียก</div>
-                        )}
-
-                        <div className="text-sm text-slate-600 mb-2 font-medium flex items-center gap-2">
-                          <ArrowRight className="w-4 h-4 text-sky-500" /> คิวถัดไป
-                        </div>
-                        {next ? (
-                          <div className="text-sm sm:text-sm text-slate-800">{next.Q_number} — {next.FULLNAME_TH}</div>
-                        ) : (
-                          <div className="text-sm text-slate-400">ไม่มีคิวรอ</div>
-                        )}
+                      ) : (
+                      <div className="text-center text-sky-100">
+                        <div className="text-2xl sm:text-3xl font-semibold">-</div>
+                        <div className="text-sm sm:text-base">ไม่มีคิว</div>
                       </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm sm:text-base text-slate-700 mb-1 font-medium">คิวปัจจุบัน</div>
+                      {current ? (
+                      <div className="text-base sm:text-lg text-slate-800 mb-2 truncate">{current.FULLNAME_TH}</div>
+                      ) : (
+                      <div className="text-sm text-slate-400 mb-2">ไม่มีคิวกำลังเรียก</div>
+                      )}
+
+                      <div className="text-sm sm:text-base text-slate-600 mb-2 font-medium flex items-center gap-2">
+                      <ArrowRight className="w-4 h-4 text-sky-500" /> คิวถัดไป
+                      </div>
+                      {next ? (
+                      <div className="text-sm sm:text-base text-slate-800 truncate">{next.Q_number} — {next.FULLNAME_TH}</div>
+                      ) : (
+                      <div className="text-sm text-slate-400">ไม่มีคิวรอ</div>
+                      )}
+                    </div>
                     </div>
                   </div>
+                  </div>
                 </div>
-              </Card>
+                </Card>
             );
           })}
         </section>
