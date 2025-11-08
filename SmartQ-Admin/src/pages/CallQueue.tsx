@@ -20,6 +20,9 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
   const [services, setServices] = useState<Record<string, ServiceInfo> | null>(null);
   const [selectedCounter, setSelectedCounter] = useState<string | null>(null);
   const [transferTarget, setTransferTarget] = useState<string | null>(null);
+  const [completedCandidates, setCompletedCandidates] = useState<Array<{ Q_number: number; FULLNAME_TH: string; service?: string }>>([]);
+  const [selectedCompletedQnum, setSelectedCompletedQnum] = useState<number | null>(null);
+  const [allowTransferSelection, setAllowTransferSelection] = useState<boolean>(false);
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const serviceName = propServiceName || params.get('service') || 'inspect';
@@ -55,20 +58,45 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
     if (callNextQueue) await callNextQueue(selectedCounter);
   };
 
-  // ส่งต่อบริการ: enqueue ที่บริการอื่น แล้ว complete คิวปัจจุบัน
+  // ฟังก์ชัน wrapper สำหรับเสร็จสิ้น: เรียก complete แล้วเปิด selector ให้เลือกคนที่เสร็จ
+  const handleCompleteAndEnableTransfer = async () => {
+    if (!currentQueue) return;
+    // call complete (fire and forget)
+    try {
+      completeQueue(currentQueue.id);
+    } catch (e) {
+      console.error('completeQueue error', e);
+    }
+
+    // build candidate list: put just-completed first, then history (avoid duplicates)
+    const justCompleted = { Q_number: currentQueue.queueNumber, FULLNAME_TH: currentQueue.customerName, service: currentQueue.service };
+    const merged = [justCompleted, ...(history || [])].filter((v, i, a) => a.findIndex(x => x.Q_number === v.Q_number) === i);
+    setCompletedCandidates(merged);
+    setSelectedCompletedQnum(justCompleted.Q_number);
+    setAllowTransferSelection(true);
+  };
+
+  // ส่งต่อบริการ: เอารายชื่อที่เลือก (จากรายการคนที่เสร็จแล้ว) ไป enqueue ที่บริการเป้าหมาย
   const handleTransfer = async () => {
     if (!transferTarget) return alert('กรุณาเลือกบริการเป้าหมาย');
-    if (!currentQueue) return alert('ไม่มีคิวปัจจุบันที่จะส่งต่อ');
+    if (!selectedCompletedQnum) return alert('กรุณาเลือกผู้ใช้ที่เสร็จแล้วเพื่อส่งต่อ');
+    const item = completedCandidates.find(c => c.Q_number === selectedCompletedQnum);
+    if (!item) return alert('ไม่พบรายการที่เลือก');
+
     try {
       const base = backendUrl ? backendUrl.replace(/\/$/, '') : '';
       const endpoint = `${base}/api/queue/${transferTarget}/enqueue`;
       await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ FULLNAME_TH: currentQueue.customerName }),
+        body: JSON.stringify({ FULLNAME_TH: item.FULLNAME_TH }),
       });
-      // หลังจากส่งต่อสำเร็จ ทำการ complete คิวปัจจุบัน
-      if (currentQueue) completeQueue(currentQueue.id);
+
+      // Optionally remove from local candidates to avoid duplicate sends
+      setCompletedCandidates(prev => prev.filter(c => c.Q_number !== selectedCompletedQnum));
+      setSelectedCompletedQnum(null);
+      setTransferTarget(null);
+      setAllowTransferSelection(false);
     } catch (e) {
       console.error('Failed to transfer', e);
       alert('ส่งต่อไม่สำเร็จ โปรดลองอีกครั้ง');
@@ -206,7 +234,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           </Button>
 
           <Button
-            onClick={() => currentQueue && completeQueue(currentQueue.id)}
+            onClick={handleCompleteAndEnableTransfer}
             disabled={!currentQueue}
             variant="secondary"
             size="lg"
@@ -217,27 +245,42 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           </Button>
         </div>
 
-        {/* Transfer to another service */}
+        {/* Transfer to another service (requires completing a user first) */}
         <Card className="mb-6 p-4">
           <h3 className="font-semibold mb-2">ส่งต่อผู้ใช้ไปยังบริการอื่น</h3>
-          <div className="flex items-center gap-3">
-            <select
-              className="px-3 py-2 border rounded"
-              value={transferTarget ?? ''}
-              onChange={(e) => setTransferTarget(e.target.value || null)}
-            >
-              <option value="">-- เลือกบริการ --</option>
-              {services && Object.keys(services).map(key => (
-                // ไม่ให้เลือกบริการเดียวกับหน้าปัจจุบัน
-                key === serviceName ? null : (
-                  <option key={key} value={key}>{(services as any)[key].name || key}</option>
-                )
-              ))}
-            </select>
+          <div className="flex flex-col gap-3">
+            <div className="text-sm text-muted-foreground">ก่อนส่งต่อ ให้กด "เสร็จสิ้น" สำหรับคิวที่ต้องการก่อน จากนั้นเลือกรายชื่อจากรายการผู้ที่เสร็จแล้ว</div>
 
-            <Button onClick={handleTransfer} disabled={!transferTarget || !currentQueue}>
-              ส่งต่อไปยังบริการอื่น
-            </Button>
+            <div className="flex items-center gap-3">
+              <select
+                className="px-3 py-2 border rounded"
+                value={selectedCompletedQnum ?? ''}
+                onChange={(e) => setSelectedCompletedQnum(e.target.value ? Number(e.target.value) : null)}
+                disabled={!allowTransferSelection}
+              >
+                <option value="">-- เลือกรายชื่อผู้ที่เสร็จแล้ว --</option>
+                {completedCandidates.map(c => (
+                  <option key={c.Q_number} value={c.Q_number}>{c.Q_number} — {c.FULLNAME_TH}</option>
+                ))}
+              </select>
+
+              <select
+                className="px-3 py-2 border rounded"
+                value={transferTarget ?? ''}
+                onChange={(e) => setTransferTarget(e.target.value || null)}
+              >
+                <option value="">-- เลือกบริการปลายทาง --</option>
+                {services && Object.keys(services).map(key => (
+                  key === serviceName ? null : (
+                    <option key={key} value={key}>{(services as any)[key].name || key}</option>
+                  )
+                ))}
+              </select>
+
+              <Button onClick={handleTransfer} disabled={!allowTransferSelection || !transferTarget || !selectedCompletedQnum}>
+                ส่งต่อไปยังบริการอื่น
+              </Button>
+            </div>
           </div>
         </Card>
 

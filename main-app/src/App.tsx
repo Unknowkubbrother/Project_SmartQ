@@ -1,4 +1,4 @@
-import { useState, useEffect,useRef, use } from "react";
+import { useState, useEffect,useRef } from "react";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { SmartQPayload , ThaiIDCardData } from "@/interfaces";
