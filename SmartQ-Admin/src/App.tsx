@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -38,6 +39,35 @@ const CallQueueWrapper: React.FC = () => {
 };
 
 const App = () => {
+   useEffect(() => {
+    // ป้องกันคลิกขวา
+    const handleContextMenu = (e : any) => {
+      e.preventDefault();
+      alert('คลิกขวาถูกปิดใช้งาน!');
+    };
+
+    // ป้องกัน Ctrl+C, Ctrl+U, Ctrl+Shift+I
+    const handleKeyDown = (e : any) => {
+      if (e.ctrlKey && (e.key === 'c' || e.key === 'u' || e.key === 's')) {
+        e.preventDefault();
+        alert('ไม่สามารถคัดลอกหรือดู source ได้!');
+      }
+      if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+        e.preventDefault();
+        alert('ไม่อนุญาต DevTools!');
+      }
+    };
+
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('keydown', handleKeyDown);
+
+    // ลบ event listener ตอน component ถูก unmount
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {

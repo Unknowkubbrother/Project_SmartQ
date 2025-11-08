@@ -6,6 +6,13 @@
 All colors MUST be HSL.
 */
 
+*{
+    user-select: none;       /* ป้องกัน selection */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
 @layer base {
   :root {
     /* Service Center Theme - Blue & White */
