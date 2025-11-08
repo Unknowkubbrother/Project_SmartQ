@@ -4,12 +4,15 @@ from gtts import gTTS
 import base64, io
 from typing import List
 from fastapi import WebSocket, WebSocketDisconnect, APIRouter
+from src.config.config import get as config
 
 queue_router = APIRouter()
 
+
 class QueueManager:
-    def __init__(self, name: str):
+    def __init__(self, name: str, counters: List[dict]):
         self.name = name
+        self.counters = counters  # list of counters for this service
         self.queue = deque()
         self.active_connections: List[dict] = []
         self.muted = False
@@ -17,6 +20,7 @@ class QueueManager:
         self.current: dict | None = None
         self.current_audio_base64: str | None = None
         self.counter_number = 0
+        self.next_counter_index = 0  # สำหรับสลับช่อง
 
     async def connect(self, websocket: WebSocket, role: str = "client"):
         await websocket.accept()
@@ -63,26 +67,11 @@ class QueueManager:
 
 
 # === services config ===
-SERVICES = [
-    {
-        "name": "inspect",
-        "counters": [
-            {"name": "ช่องตรวจ 1", "code": "C1"},
-            {"name": "ช่องตรวจ 2", "code": "C2"},
-        ],
-    },
-    {
-        "name": "gmdc",
-        "counters": [
-            {"name": "ช่องจ่ายยา 1", "code": "G1"},
-            {"name": "ช่องจ่ายยา 2", "code": "G2"},
-        ],
-    },
-]
+SERVICES = config("SERVICES")
 
 # === สร้าง manager แยกแต่ละ service ===
 service_managers: dict[str, QueueManager] = {
-    s["name"]: QueueManager(s["name"]) for s in SERVICES
+    s["name"]: QueueManager(s["name"], s.get("counters", [])) for s in SERVICES
 }
 
 
@@ -90,15 +79,21 @@ service_managers: dict[str, QueueManager] = {
 def get_services():
     return SERVICES
 
-
 @queue_router.post("/{service}/enqueue")
 async def enqueue_item(service: str, item: EnqueueItem):
     manager = service_managers.get(service)
     if not manager:
         return {"error": f"unknown service {service}"}
-    
+
     manager.counter_number += 1
-    data = {"Q_number": manager.counter_number, "FULLNAME_TH": item.FULLNAME_TH}
+    # ถ้า client ส่ง counter มาให้บันทึกด้วย
+    counter = getattr(item, "counter", None)
+
+    data = {
+        "Q_number": manager.counter_number,
+        "FULLNAME_TH": item.FULLNAME_TH,
+        "counter": counter,
+    }
     manager.queue.append(data)
     await manager.broadcast({"type": "queue_update", "queue": list(manager.queue)})
     await manager.broadcast_status()
@@ -106,10 +101,13 @@ async def enqueue_item(service: str, item: EnqueueItem):
 
 
 @queue_router.post("/{service}/dequeue")
-async def dequeue_item(service: str):
+async def dequeue_item(service: str, payload: dict = {}):
     manager = service_managers.get(service)
     if not manager:
         return {"error": f"unknown service {service}"}
+
+    # เลือก counter จาก payload
+    counter = payload.get("counter")
 
     if manager.current:
         prev = manager.current
@@ -120,7 +118,9 @@ async def dequeue_item(service: str):
 
     if manager.queue:
         item = manager.queue.popleft()
-        text = f"คิวหมายเลข {item['Q_number']} {item['FULLNAME_TH']} กรุณารอที่ {service}"
+        item["counter"] = counter  # เพิ่ม counter ลงใน current
+
+        text = f"คิวหมายเลข {item['Q_number']} {item['FULLNAME_TH']} กรุณาไปที่ {counter or 'ช่องบริการ'}"
         tts = gTTS(text=text, lang="th")
         fp = io.BytesIO()
         tts.write_to_fp(fp)
@@ -151,15 +151,16 @@ async def complete_item(service: str, payload: dict):
     manager = service_managers.get(service)
     if not manager:
         return {"error": f"unknown service {service}"}
+
     try:
         qnum = int(payload.get("Q_number"))
     except Exception:
         return {"error": "missing or invalid Q_number"}
 
     fullname = payload.get("FULLNAME_TH", "Unknown")
-    service_name = payload.get("service", "")
 
-    manager.history.insert(0, {"Q_number": qnum, "FULLNAME_TH": fullname, "service": service_name})
+    # ใช้ service จาก URL
+    manager.history.insert(0, {"Q_number": qnum, "FULLNAME_TH": fullname, "service": service})
     if len(manager.history) > 50:
         manager.history = manager.history[:50]
 

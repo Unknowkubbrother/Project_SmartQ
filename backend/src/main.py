@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.router.jhcis import jhcis_router
-from src.router.queue_inspect import queue_inspect_router
-from src.router.queue_gmdc import queue_gmdc_router
+from src.router.queue import queue_router
 from src.router.nhso import nsho_router
 from src.config.config import get as config
 from src.lib.untils import image_to_data_uri
@@ -29,7 +28,6 @@ def intital():
         "LOGO": LogoBase64
     }
 
-app.include_router(queue_inspect_router, prefix="/api/inspect")
-app.include_router(queue_gmdc_router, prefix="/api/gmdc")
+app.include_router(queue_router, prefix="/api/queue")
 app.include_router(jhcis_router, prefix="/api/jhcis")
 app.include_router(nsho_router, prefix="/api/nhso")

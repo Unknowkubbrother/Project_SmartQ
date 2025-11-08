@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import React from 'react';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { QueueProvider } from "./contexts/QueueContext";
 import { BackendProvider, RequireBackend } from '@/contexts/BackendContext';
 import QueueList from "./pages/QueueList";
@@ -16,11 +16,31 @@ import StartChoice from "./pages/StartChoice";
 
 const queryClient = new QueryClient();
 
+// Wrapper เพื่อดึง serviceName จาก state แล้วส่งให้ QueueProvider
+const QueueListWrapper: React.FC = () => {
+  const location = useLocation();
+  const serviceName = (location.state as any)?.serviceName ?? 'inspect';
+  return (
+    <QueueProvider serviceName={serviceName}>
+      <QueueList />
+    </QueueProvider>
+  );
+};
+
+const CallQueueWrapper: React.FC = () => {
+  const location = useLocation();
+  const serviceName = (location.state as any)?.serviceName ?? 'inspect';
+  return (
+    <QueueProvider serviceName={serviceName}>
+      <CallQueue serviceName={serviceName} />
+    </QueueProvider>
+  );
+};
+
 const App = () => {
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    // simulate splash loading (or load persisted state)
     const t = setTimeout(() => setIsLoading(false), 700);
     return () => clearTimeout(t);
   }, []);
@@ -35,21 +55,20 @@ const App = () => {
             <SplashScreen />
           ) : (
             <BrowserRouter>
-              <QueueProvider  serviceName="inspect">
-                <Routes>
-                  {/* Setup flow */}
-                  <Route path="/setup" element={<BackendSetup />} />
-                  <Route path="/start" element={<StartChoice />} />
+              <Routes>
+                {/* Setup flow */}
+                <Route path="/setup" element={<BackendSetup />} />
+                <Route path="/start" element={<StartChoice />} />
 
-                  {/* Main app routes (require backend configured) */}
-                  <Route path="/" element={<RequireBackend><QueueList /></RequireBackend>} />
-                  <Route path="/call-queue" element={<RequireBackend><CallQueue /></RequireBackend>} />
-                  <Route path="/display" element={<RequireBackend><DisplayBoard /></RequireBackend>} />
+                {/* Main app routes */}
+                <Route path="/queue-list" element={<RequireBackend><QueueListWrapper /></RequireBackend>} />
+                <Route path="/call-queue" element={<RequireBackend><CallQueueWrapper /></RequireBackend>} />
+                <Route path="/display" element={<RequireBackend><DisplayBoard /></RequireBackend>} />
 
-                  {/* Catch-all */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </QueueProvider>
+                {/* Catch-all */}
+                <Route path="/" element={<RequireBackend><StartChoice /></RequireBackend>} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
             </BrowserRouter>
           )}
         </TooltipProvider>

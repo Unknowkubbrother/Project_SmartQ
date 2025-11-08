@@ -120,7 +120,7 @@ function Main({ cardData, onCancel, backendUrl, username,HOSPITAL_NAME,LOGO }: {
           return;
         }
 
-        const queue_inspect = await axios.post(backendUrl + '/api/inspect/enqueue', { FULLNAME_TH: cardData?.thaiIDCardData.FULLNAME_TH });
+        const queue_inspect = await axios.post(backendUrl + '/api/queue/inspect/enqueue', { FULLNAME_TH: cardData?.thaiIDCardData.FULLNAME_TH });
 
         if (queue_inspect.status !== 200) {
           Swal.fire({

@@ -1,4 +1,5 @@
 import { useQueue, QueueStatus } from '@/contexts/QueueContext';
+import { useLocation } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, Clock, CheckCircle2, Radio , ArrowLeftFromLine} from 'lucide-react';
@@ -7,6 +8,8 @@ import { Link } from 'react-router-dom';
 
 const QueueList = () => {
   const { queues, history, currentQueue, serverStatus } = useQueue();
+  const location = useLocation();
+  const serviceName = (location.state as any)?.serviceName ?? 'inspect';
 
   const getStatusBadge = (status: QueueStatus) => {
     switch (status) {
@@ -109,16 +112,16 @@ const QueueList = () => {
         {/* Queue Table */}
         <Card className="shadow-lg border-border/50 overflow-hidden">
           <div className="bg-gradient-primary p-6">
-            <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Users className="w-6 h-6 text-primary-foreground" />
                 <h2 className="text-2xl font-bold text-primary-foreground">รายการคิวทั้งหมด</h2>
               </div>
-              <Link to="/call-queue">
-                <Button variant="secondary" size="sm">
-                  ไปหน้าเรียกคิว
-                </Button>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link to="/call-queue" state={{ serviceName }}>
+                  <Button variant="secondary" size="sm">ไปหน้าเรียกคิว</Button>
+                </Link>
+              </div>
             </div>
           </div>
 

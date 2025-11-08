@@ -10,7 +10,7 @@ export interface Queue {
   customerName: string;
   status: QueueStatus;
   timestamp: Date;
-  counter?: number;
+  counter?: string; // 👈 เพิ่ม counter
   service?: string;
 }
 
@@ -18,7 +18,7 @@ interface ServerHistoryItem {
   Q_number: number;
   FULLNAME_TH: string;
   service?: string;
-  counter?: number;
+  counter?: string; // 👈 เพิ่ม counter
 }
 
 interface QueueContextType {
@@ -26,8 +26,8 @@ interface QueueContextType {
   currentQueue: Queue | null;
   history: ServerHistoryItem[];
   serverStatus: { online: number; queue_length: number; muted?: boolean; processed_count?: number } | null;
-  addQueue: (name: string) => void;
-  callNextQueue: () => void;
+  addQueue: (name: string) => Promise<void>;
+  callNextQueue: (selectedCounter: string) => Promise<void>;
   callAgain: () => void;
   completeQueue: (id: string) => void;
   setMute?: (muted: boolean) => Promise<void>;
@@ -35,15 +35,13 @@ interface QueueContextType {
 
 const QueueContext = createContext<QueueContextType | undefined>(undefined);
 
-const channel = typeof window !== 'undefined' ? new BroadcastChannel('queue_channel') : null;
-
-export const QueueProvider = ({ children, serviceName }: { children: ReactNode; serviceName: string }) => {
-  // 👆 เพิ่ม serviceName prop เพื่อแยกแต่ละคิว เช่น 'inspect' / 'gmdc'
-
+export const QueueProvider = ({ children, serviceName = 'inspect' }: { children: ReactNode; serviceName?: string }) => {
   const [queues, setQueues] = useState<Queue[]>([]);
   const [currentQueue, setCurrentQueue] = useState<Queue | null>(null);
   const { backendUrl } = useBackend();
   const wsRef = useRef<WebSocket | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
   const location = useLocation();
   const [history, setHistory] = useState<ServerHistoryItem[]>([]);
   const [serverStatus, setServerStatus] = useState<{ online: number; queue_length: number; muted?: boolean; processed_count?: number } | null>(null);
@@ -57,15 +55,15 @@ export const QueueProvider = ({ children, serviceName }: { children: ReactNode; 
       return;
     }
 
-    const role = (typeof window !== 'undefined' && location && location.pathname.startsWith('/display')) ? 'display' : 'client';
+    const role = location.pathname.startsWith('/display') ? 'display' : 'client';
 
     let wsUrl = backendUrl.replace(/\/$/, '');
     if (wsUrl.startsWith('http://')) wsUrl = wsUrl.replace('http://', 'ws://');
     else if (wsUrl.startsWith('https://')) wsUrl = wsUrl.replace('https://', 'wss://');
     else wsUrl = 'ws://' + wsUrl;
 
-    // 👇 ต่อท้าย serviceName แทน ws_inspect
-    wsUrl = `${wsUrl}/api/${serviceName}/ws?role=${role}`;
+  // backend websocket path is mounted at /api/queue/ws/{service}
+  wsUrl = `${wsUrl}/api/queue/ws/${serviceName}?role=${role}`;
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -84,6 +82,7 @@ export const QueueProvider = ({ children, serviceName }: { children: ReactNode; 
               status: 'waiting',
               timestamp: new Date(),
               service: q.service,
+              counter: q.counter,
             }));
             setQueues(mapped);
           } else if (msg.type === 'status') {
@@ -104,6 +103,7 @@ export const QueueProvider = ({ children, serviceName }: { children: ReactNode; 
                 status: 'calling',
                 timestamp: new Date(),
                 service: it.service,
+                counter: it.counter,
               });
           } else if (msg.type === 'complete') {
             const qnum = msg.Q_number;
@@ -112,16 +112,39 @@ export const QueueProvider = ({ children, serviceName }: { children: ReactNode; 
                 q.id === String(qnum) ? { ...q, status: 'completed' as QueueStatus } : q
               )
             );
-            if (currentQueue?.id === String(qnum)) setCurrentQueue(null);
+            setCurrentQueue(prev => (prev?.id === String(qnum) ? null : prev));
           } else if (msg.type === 'history') {
             setHistory(msg.history || []);
           } else if (msg.type === 'audio') {
             if (role !== 'display') return;
             if (serverStatus?.muted) return;
-            const blob = b64ToBlob(msg.data, 'audio/mp3');
-            const url = URL.createObjectURL(blob);
-            const audio = new Audio(url);
-            audio.play().catch(() => {});
+            try {
+              // stop previous audio if playing
+              if (audioRef.current) {
+                try {
+                  audioRef.current.pause();
+                  audioRef.current.currentTime = 0;
+                } catch (e) {}
+              }
+              if (audioUrlRef.current) {
+                try { URL.revokeObjectURL(audioUrlRef.current); } catch (e) {}
+                audioUrlRef.current = null;
+              }
+
+              const blob = b64ToBlob(msg.data, 'audio/mp3');
+              const url = URL.createObjectURL(blob);
+              const audio = new Audio(url);
+              audioRef.current = audio;
+              audioUrlRef.current = url;
+              audio.play().catch(() => {});
+              audio.onended = () => {
+                try { URL.revokeObjectURL(url); } catch (e) {}
+                if (audioRef.current === audio) audioRef.current = null;
+                if (audioUrlRef.current === url) audioUrlRef.current = null;
+              };
+            } catch (e) {
+              console.error('Failed to play audio', e);
+            }
           }
         } catch (err) {
           console.error('Invalid WS message', err);
@@ -157,36 +180,34 @@ export const QueueProvider = ({ children, serviceName }: { children: ReactNode; 
     return new Blob(byteArrays, { type: contentType });
   };
 
-  // 👇 ทุก endpoint ต้องต่อท้าย /{serviceName}/
   const addQueue = async (name: string) => {
-    if (backendUrl) {
-      const endpoint = `${backendUrl.replace(/\/$/, '')}/api/${serviceName}/enqueue`;
-      await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ FULLNAME_TH: name, service: serviceName }),
-      }).catch(console.error);
-      return;
-    }
+    if (!backendUrl) return;
+    const endpoint = `${backendUrl.replace(/\/$/, '')}/api/queue/${serviceName}/enqueue`;
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ FULLNAME_TH: name, service: serviceName }),
+    }).catch(console.error);
   };
 
-  const callNextQueue = async () => {
-    if (backendUrl) {
-      const endpoint = `${backendUrl.replace(/\/$/, '')}/api/${serviceName}/dequeue`;
-      await fetch(endpoint, { method: 'POST' }).catch(console.error);
-      return;
-    }
+    const callNextQueue = async (selectedCounter : string) => {
+    if (!backendUrl || !selectedCounter) return;
+    const endpoint = `${backendUrl.replace(/\/$/, '')}/api/queue/${serviceName}/dequeue`;
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ counter: selectedCounter }),
+    }).catch(console.error);
   };
 
   const callAgain = () => {
-    if (backendUrl) {
-      fetch(`${backendUrl.replace(/\/$/, '')}/api/${serviceName}/reannounce`, { method: 'POST' }).catch(console.error);
-    }
+    if (!backendUrl) return;
+    fetch(`${backendUrl.replace(/\/$/, '')}/api/queue/${serviceName}/reannounce`, { method: 'POST' }).catch(console.error);
   };
 
   const setMute = async (muted: boolean) => {
     if (!backendUrl) return;
-    await fetch(`${backendUrl.replace(/\/$/, '')}/api/${serviceName}/mute`, {
+    await fetch(`${backendUrl.replace(/\/$/, '')}/api/queue/${serviceName}/mute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ muted }),
@@ -194,19 +215,18 @@ export const QueueProvider = ({ children, serviceName }: { children: ReactNode; 
   };
 
   const completeQueue = (id: string) => {
-    if (backendUrl) {
-      const q = currentQueue && currentQueue.id === id ? currentQueue : queues.find(q => q.id === id);
-      if (!q) return;
-      fetch(`${backendUrl.replace(/\/$/, '')}/api/${serviceName}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          Q_number: q.queueNumber,
-          FULLNAME_TH: q.customerName,
-          service: serviceName,
-        }),
-      }).catch(console.error);
-    }
+    if (!backendUrl) return;
+    const q = currentQueue?.id === id ? currentQueue : queues.find(q => q.id === id);
+    if (!q) return;
+    fetch(`${backendUrl.replace(/\/$/, '')}/api/queue/${serviceName}/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        Q_number: q.queueNumber,
+        FULLNAME_TH: q.customerName,
+        service: serviceName,
+      }),
+    }).catch(console.error);
   };
 
   return (
