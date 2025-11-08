@@ -1,4 +1,4 @@
-import { useState, useEffect,useRef } from "react";
+import { useState, useEffect,useRef, use } from "react";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { SmartQPayload , ThaiIDCardData } from "@/interfaces";
@@ -22,7 +22,6 @@ import {
 
 
 function App() {
-
     useEffect(() => {
     // ป้องกันคลิกขวา
     // const handleContextMenu = (e : any) => {
@@ -69,6 +68,16 @@ function App() {
   const [password, setPassword] = useState<string>('');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [listusernames, setListUsernames] = useState<string[]>([]);
+
+  const [HOSPITAL_NAME, setHOSPITAL_NAME] = useState<string>('');
+  const [LOGO, setLOGO] = useState<string>('');
+
+  const inital = async (base : string) => {
+        const response = await axios.get(`${base}/api/initial`);
+        setHOSPITAL_NAME(response.data.HOSPITAL_NAME);
+        setLOGO(response.data.LOGO);
+    };
+
 
   const fetchUsernames = async (backendUrl : string) => {
     try {
@@ -169,6 +178,7 @@ function App() {
       backendUrlRef.current = base;
       setBackendConnected(true);
       fetchUsernames(base);
+      inital(base);
     } catch (e: any) {
       console.error("Backend connect failed", e);
       const message =
@@ -336,7 +346,10 @@ function App() {
         )
       ) : (
         backendConnected && isAuthenticated && readerReady ? (
-          <Home />
+          <Home 
+          HOSPITAL_NAME={HOSPITAL_NAME}
+          LOGO={LOGO}
+          />
         ) : (
           null
         )

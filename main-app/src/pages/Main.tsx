@@ -7,7 +7,7 @@ import Swal from "sweetalert2";
 import ClaimUI from "@/components/ClaimUI";
 import MobileUI from "@/components/MobileUI";
 
-function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPayload | null; onCancel: () => void; backendUrl?: string | null, username?: string }) {
+function Main({ cardData, onCancel, backendUrl, username,HOSPITAL_NAME,LOGO }: { cardData: SmartQPayload | null; onCancel: () => void; backendUrl?: string | null, username?: string, HOSPITAL_NAME?: string, LOGO?: string }) {
   const [mobileUI, setMobileUI] = useState<boolean>(false)
   const [mobile, setMobile] = useState<string>("")
   const [claim, setClaim] = useState<boolean>(false);
@@ -120,37 +120,37 @@ function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPa
           return;
         }
 
+        const queue_inspect = await axios.post(backendUrl + '/api/inspect/enqueue', { FULLNAME_TH: cardData?.thaiIDCardData.FULLNAME_TH });
 
-        await axios.post(backendUrl + '/api/inspect/enqueue', { fname: cardData?.fname })
-          .then((_: any) => {
-            Swal.fire({
-              title: "สำเร็จ!",
-              text: "คุณได้ยืนยันการเข้ารับบัตรคิวเรียบร้อยแล้ว.",
-              icon: "success",
-              timer: 2000,
-              timerProgressBar: true,
-              showConfirmButton: false,
-            }).then(() => {
-              Swal.fire({
-                title: "กลับสู่หน้าหลัก",
-                timer: 3000,
-                timerProgressBar: true,
-                didOpen: () => {
-                  Swal.showLoading();
-                }
-              }).then(() => {
-                onCancel();
-              });
-            });
-          })
-          .catch((error: any) => {
-            Swal.fire({
-              title: "เกิดข้อผิดพลาด!",
-              text: "ไม่สามารถยืนยันการเข้ารับบัตรคิวได้ กรุณาลองใหม่อีกครั้ง.",
-              icon: "error"
-            });
-            console.error("Error submitting service:", error);
+        if (queue_inspect.status !== 200) {
+          Swal.fire({
+            title: "เกิดข้อผิดพลาด!",
+            text: "ไม่สามารถยืนยันการเข้ารับบัตรคิวได้ กรุณาลองใหม่อีกครั้ง.",
+            icon: "error"
           });
+          return;
+        }
+
+        Swal.fire({
+          title: "สำเร็จ!",
+          text: "คุณได้ยืนยันการเข้ารับบัตรคิวเรียบร้อยแล้ว.",
+          icon: "success",
+          timer: 2000,
+          timerProgressBar: true,
+          showConfirmButton: false,
+        }).then(() => {
+          Swal.fire({
+            title: "กลับสู่หน้าหลัก",
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: () => {
+              Swal.showLoading();
+            }
+          }).then(() => {
+            onCancel();
+          });
+          
+        });
       }
     });
   }
@@ -186,10 +186,10 @@ function Main({ cardData, onCancel, backendUrl, username }: { cardData: SmartQPa
       {/* Header */}
       <header className="w-full max-w-4xl">
         <div className="rounded-xl overflow-hidden shadow-lg bg-gradient-to-r from-teal-500 to-cyan-500 text-white py-4 flex flex-col lg:flex-row items-center gap-4 p-6">
-          <img src="./logo.png" alt="logo" className="w-20 h-20 rounded-full bg-white/20 p-1" />
+          <img src={LOGO} alt="logo" className="w-20 h-20 rounded-full bg-white/20 p-1" />
           <div className="flex-1 text-center lg:text-left">
             <h1 className="text-2xl lg:text-4xl font-semibold drop-shadow">หน้ารับบัตรคิว</h1>
-            <p className="mt-1 text-sm lg:text-base opacity-90">โรงพยาบาลส่งเสริมสุขภาพตำบลคลองบุหรี่</p>
+            <p className="mt-1 text-sm lg:text-base opacity-90">{HOSPITAL_NAME}</p>
           </div>
           <div className="text-center">
             <p className="text-sm opacity-90">สถานะ</p>

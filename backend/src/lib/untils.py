@@ -1,9 +1,13 @@
 import requests
-from dotenv import load_dotenv
-import os
+from src.config.config import get as config
+import base64
 
-load_dotenv()
-agent_url = os.getenv("NHSO_AGENT_URL")
+def image_to_data_uri(path: str, mime_type: str = "image/png") -> str:
+    with open(path, "rb") as image_file:
+        encoded = base64.b64encode(image_file.read()).decode('utf-8')
+        return f"data:{mime_type};base64,{encoded}"
+
+agent_url = config('NHSO_AGENT_URL')
 
 # TODO : secure-smart-card-agent-resource
 

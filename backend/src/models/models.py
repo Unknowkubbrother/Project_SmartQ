@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 class EnqueueItem(BaseModel):
-    fname: str
+    FULLNAME_TH: str
 
 class InsertVisit(BaseModel):
     username: str

@@ -1,9 +1,9 @@
-from src.database import db_cursor , connection
+from src.database.database import db_cursor , connection
 from fastapi import APIRouter , Response, status
 import numpy as np
 import socket
 from datetime import datetime
-from src.models import InsertVisit
+from src.models.models import InsertVisit
 
 jhcis_router = APIRouter()
 

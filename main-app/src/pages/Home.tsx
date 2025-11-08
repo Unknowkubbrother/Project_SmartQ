@@ -1,10 +1,12 @@
-export default function Home() {
+
+
+export default function Home({HOSPITAL_NAME,LOGO}: {HOSPITAL_NAME:string,LOGO:string}) {
   return (
     <main className="min-h-screen bg-gradient-to-b from-teal-500 to-cyan-500 flex items-center justify-center p-4">
       <div className="w-full max-w-3xl mx-auto">
         <header className="bg-white/40 backdrop-blur-md rounded-2xl shadow-xl py-7 flex flex-col items-center gap-4">
           <img
-            src="./logo.png"
+            src={LOGO}
             alt="SmartQ Logo"
             width={110}
             height={110}
@@ -16,7 +18,7 @@ export default function Home() {
               จุดรับบัตรคิว
             </h1>
             <h2 className="text-sm sm:text-lg text-gray-600 mt-2">
-              โรงพยาบาลส่งเสริมสุขภาพตำบลคลองบุหรี่
+              {HOSPITAL_NAME}
             </h2>
           </div>
           <div className="text-center">

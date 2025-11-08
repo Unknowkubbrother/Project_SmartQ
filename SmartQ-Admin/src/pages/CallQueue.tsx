@@ -204,7 +204,7 @@ const CallQueue = () => {
               <h3 className="font-semibold mb-2">ประวัติการเรียก (ล่าสุด)</h3>
               <ul className="space-y-1 text-sm text-muted-foreground">
                 {history.slice(0, 6).map((h) => (
-                  <li key={h.Q_number}>{h.Q_number} — {h.fname} — {h.service}</li>
+                  <li key={h.Q_number}>{h.Q_number} — {h.FULLNAME_TH} — {h.service}</li>
                 ))}
               </ul>
             </Card>

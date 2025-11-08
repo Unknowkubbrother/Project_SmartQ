@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Response, status
 from typing import Optional
 from src.lib.untils import nhso_confirm_save, smartcard_read
-from src.models import Claim
+from src.models.models import Claim
 
 nsho_router = APIRouter()
 

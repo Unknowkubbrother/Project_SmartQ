@@ -35,7 +35,7 @@ const App = () => {
             <SplashScreen />
           ) : (
             <BrowserRouter>
-              <QueueProvider>
+              <QueueProvider  serviceName="inspect">
                 <Routes>
                   {/* Setup flow */}
                   <Route path="/setup" element={<BackendSetup />} />
