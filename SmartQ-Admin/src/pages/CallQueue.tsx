@@ -28,6 +28,8 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
   const params = new URLSearchParams(location.search);
   const serviceName = propServiceName || params.get('service') || 'inspect';
 
+  // server-side transfer will mark items as transferred; frontend filters by 'transferred' flag from history
+
   // ดึงข้อมูลบริการและ counter จาก backend
   useEffect(() => {
     if (!backendUrl) return;
@@ -71,11 +73,32 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
 
     // build candidate list: put just-completed first, then history (avoid duplicates)
     const justCompleted = { Q_number: currentQueue.queueNumber, FULLNAME_TH: currentQueue.customerName, service: currentQueue.service };
-    const merged = [justCompleted, ...(history || [])].filter((v, i, a) => a.findIndex(x => x.Q_number === v.Q_number) === i);
+    const mergedRaw = [justCompleted, ...(history || [])].filter((v, i, a) => a.findIndex(x => x.Q_number === v.Q_number) === i);
+  // remove any already-transferred items (server marks history entries with transferred: true)
+  const merged = mergedRaw.filter((x: any) => !(x as any).transferred);
     setCompletedCandidates(merged);
-    setSelectedCompletedQnum(justCompleted.Q_number);
-    setAllowTransferSelection(true);
+    setSelectedCompletedQnum(merged[0]?.Q_number ?? null);
+    setAllowTransferSelection(merged.length > 0);
   };
+
+  // ถ้ากลับมาหน้านี้ใหม่ ให้เติม completedCandidates จาก history (เพื่อให้ selector ยังคงใช้งานได้)
+  // จะเติมเฉพาะเมื่อยังไม่มี completedCandidates อยู่แล้ว แต่มี history จากเซิร์ฟเวอร์
+  useEffect(() => {
+    try {
+      if ((!completedCandidates || completedCandidates.length === 0) && history && history.length > 0) {
+        // history items are in the shape { Q_number, FULLNAME_TH, ... }
+  const filtered = (history as any[]).filter((h: any) => !(h as any).transferred);
+        setCompletedCandidates(filtered);
+        // เปิดการเลือกถ้ามีรายการใน history เพราะผู้ปฏิบัติงานอาจคลิกเสร็จแล้วก่อนออกไป
+        setAllowTransferSelection(filtered.length > 0);
+        // preselect the most recent history item
+        setSelectedCompletedQnum(filtered[0]?.Q_number ?? null);
+      }
+    } catch (e) {
+      console.error('Failed to restore completed candidates from history', e);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history]);
 
   // ส่งต่อบริการ: เอารายชื่อที่เลือก (จากรายการคนที่เสร็จแล้ว) ไป enqueue ที่บริการเป้าหมาย
   const handleTransfer = async () => {
@@ -86,14 +109,19 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
 
     try {
       const base = backendUrl ? backendUrl.replace(/\/$/, '') : '';
-      const endpoint = `${base}/api/queue/${transferTarget}/enqueue`;
-      await fetch(endpoint, {
+      // call server-side transfer endpoint on the source service
+      const endpoint = `${base}/api/queue/${serviceName}/transfer`;
+      const resp = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ FULLNAME_TH: item.FULLNAME_TH }),
+        body: JSON.stringify({ Q_number: item.Q_number, target_service: transferTarget }),
       });
+      const j = await resp.json();
+      if (!resp.ok) {
+        throw new Error(j?.error || 'transfer failed');
+      }
 
-      // Optionally remove from local candidates to avoid duplicate sends
+      // optimistically remove from local candidates; server will broadcast history update via WS
       setCompletedCandidates(prev => prev.filter(c => c.Q_number !== selectedCompletedQnum));
       setSelectedCompletedQnum(null);
       setTransferTarget(null);

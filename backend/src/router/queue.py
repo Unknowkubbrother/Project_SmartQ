@@ -111,7 +111,9 @@ async def dequeue_item(service: str, payload: dict = {}):
 
     if manager.current:
         prev = manager.current
-        manager.history.insert(0, prev)
+        # ensure history entry has transferred flag
+        hprev = {"Q_number": prev.get("Q_number"), "FULLNAME_TH": prev.get("FULLNAME_TH"), "service": service, "counter": prev.get("counter"), "transferred": False}
+        manager.history.insert(0, hprev)
         if len(manager.history) > 50:
             manager.history = manager.history[:50]
         await manager.broadcast({"type": "complete", "Q_number": prev["Q_number"]})
@@ -160,7 +162,7 @@ async def complete_item(service: str, payload: dict):
     fullname = payload.get("FULLNAME_TH", "Unknown")
 
     # ใช้ service จาก URL
-    manager.history.insert(0, {"Q_number": qnum, "FULLNAME_TH": fullname, "service": service})
+    manager.history.insert(0, {"Q_number": qnum, "FULLNAME_TH": fullname, "service": service, "transferred": False})
     if len(manager.history) > 50:
         manager.history = manager.history[:50]
 
@@ -201,6 +203,68 @@ async def reannounce_current(service: str):
         await manager.broadcast({"type": "audio", "data": manager.current_audio_base64}, role="display")
         return {"message": "reannounced"}
     return {"message": "muted or no audio"}
+
+
+@queue_router.post("/{service}/transfer")
+async def transfer_item(service: str, payload: dict):
+    """Transfer a completed/history item from this service to another service.
+
+    Expected payload: { "Q_number": <int>, "target_service": "name" }
+    This will:
+      - verify the source history item exists and is not already transferred
+      - enqueue a new item into target_service (creating a new Q_number there)
+      - mark the source history item as transferred (transferred=True, transferred_to=target)
+      - broadcast history update for source and queue update/status for target
+    """
+    manager = service_managers.get(service)
+    if not manager:
+        return {"error": f"unknown service {service}"}
+
+    try:
+        qnum = int(payload.get("Q_number"))
+    except Exception:
+        return {"error": "missing or invalid Q_number"}
+
+    target = payload.get("target_service")
+    if not target:
+        return {"error": "missing target_service"}
+
+    target_manager = service_managers.get(target)
+    if not target_manager:
+        return {"error": f"unknown target service {target}"}
+
+    # find history item in source manager
+    found = None
+    for h in manager.history:
+        if h.get("Q_number") == qnum:
+            found = h
+            break
+
+    if not found:
+        return {"error": "source Q_number not found in history"}
+
+    if found.get("transferred"):
+        return {"error": "item already transferred"}
+
+    fullname = found.get("FULLNAME_TH", "Unknown")
+
+    # 1) enqueue into target manager
+    target_manager.counter_number += 1
+    new_item = {"Q_number": target_manager.counter_number, "FULLNAME_TH": fullname}
+    target_manager.queue.append(new_item)
+
+    # 2) mark source history item as transferred
+    found["transferred"] = True
+    found["transferred_to"] = target
+
+    # broadcast updates
+    await target_manager.broadcast({"type": "queue_update", "queue": list(target_manager.queue)})
+    await target_manager.broadcast_status()
+
+    await manager.broadcast({"type": "history", "history": manager.history})
+    await manager.broadcast_status()
+
+    return {"message": "transferred", "from": {"service": service, "Q_number": qnum}, "to": {"service": target, "Q_number": new_item["Q_number"]}}
 
 
 @queue_router.websocket("/ws/{service}")
