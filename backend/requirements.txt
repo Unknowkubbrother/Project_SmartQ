@@ -3,3 +3,4 @@ uvicorn
 gtts
 mysql-connector-python
 numpy
+pymysql

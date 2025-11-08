@@ -1,22 +1,24 @@
-import json, os, sys
+import os
+import sys
+import json
 
 def resource_path(relative_path):
     """หา path ของไฟล์ config ไม่ว่ารันจาก .py หรือ .exe"""
     if getattr(sys, 'frozen', False):
-        # กรณีรันจาก exe
+        # รันจาก exe
         base_path = os.path.dirname(sys.executable)
     else:
-        # กรณีรันจากโค้ดปกติ
-        base_path = os.path.abspath(".")
+        # รันจาก .py
+        # __file__ = backend/src/config/config.py
+        base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))  # กลับไป backend/
     return os.path.join(base_path, relative_path)
 
-# โหลด config.json
-config_path = resource_path('src/config/config.json')
+# โหลด config.json (อยู่ใน backend/config/config.json)
+config_path = resource_path('config/config.json')
 with open(config_path, encoding='utf-8') as f:
     _config = json.load(f)
 
 def get(key, default=None):
-    """ดึงค่าจาก config ด้วย dot notation เช่น 'DB.HOST'"""
     keys = key.split('.')
     value = _config
     for k in keys:
