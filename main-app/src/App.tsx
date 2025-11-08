@@ -269,11 +269,11 @@ function App() {
                   <Button className="btn bg-rose-400 hover:bg-rose-500" onClick={() => { setBackendInput(''); setBackendError(null); }}>ล้าง</Button>
                 </div>
                 {backendError && <div className="text-sm text-red-600 mt-2">{backendError}</div>}
-                <div className="text-sm text-muted-foreground mt-2">ต้องระบุ URL ของ backend ก่อนใช้งาน (ข้อมูลจะไม่ถูกบันทึก)</div>
+                <div className="text-sm text-muted-foreground mt-2">ต้องระบุ URL ของ server ก่อนใช้งาน (ข้อมูลจะไม่ถูกบันทึก)</div>
               </div>
             ) : (
               <div>
-                <div className="mb-2">เชื่อมต่อกับ backend: <strong>{backendUrl}</strong></div>
+                <div className="mb-2">เชื่อมต่อกับ server: <strong>{backendUrl}</strong></div>
                 <div className="mb-3">สถานะเครื่องอ่านบัตร: {readerReady ? (<span className="text-green-600">เชื่อมต่อแล้ว</span>) : (<span className="text-orange-600">ยังไม่เชื่อมต่อ</span>)}</div>
                 {!readerReady && <div className="text-sm text-muted-foreground">กรุณาเสียบเครื่องอ่านบัตร รอการเชื่อมต่อ ระบบจะตรวจสอบและเปิดใช้งานเมื่อพบเครื่องอ่าน</div>}
               </div>
@@ -334,6 +334,8 @@ function App() {
             onCancel={handleCancel}
             backendUrl={backendUrl}
             username={username}
+            HOSPITAL_NAME={HOSPITAL_NAME}
+            LOGO={LOGO}
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-center">

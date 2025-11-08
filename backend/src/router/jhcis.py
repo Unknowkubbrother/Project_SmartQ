@@ -74,7 +74,7 @@ async def insert_visit(payload: InsertVisit):
     subInscl = payload.subInscl
 
 
-    with connection.cursor() as db_cursor:  # ✅ ใช้ cursor ใน scope นี้
+    with connection.cursor() as db_cursor:
         db_cursor.execute("SELECT pcucode FROM user WHERE username = %s", (username,))
         user = db_cursor.fetchone()
         if not user:
@@ -174,11 +174,9 @@ async def insert_visit(payload: InsertVisit):
             subInscl
         )
 
-        print(values)
-
         try:
             db_cursor.execute(insert_query, values)
-            connection.commit()  # ✅ commit บน connection ใหม่แน่ ๆ
+            connection.commit() 
         except Exception as e:
             connection.rollback()
             print(f"Database insert failed: {str(e)}")

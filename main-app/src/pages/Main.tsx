@@ -7,7 +7,7 @@ import Swal from "sweetalert2";
 import ClaimUI from "@/components/ClaimUI";
 import MobileUI from "@/components/MobileUI";
 
-function Main({ cardData, onCancel, backendUrl, username,HOSPITAL_NAME,LOGO }: { cardData: SmartQPayload | null; onCancel: () => void; backendUrl?: string | null, username?: string, HOSPITAL_NAME?: string, LOGO?: string }) {
+function Main({ cardData, onCancel, backendUrl, username,HOSPITAL_NAME, LOGO }: { cardData: SmartQPayload | null; onCancel: () => void; backendUrl?: string | null, username?: string, HOSPITAL_NAME?: string, LOGO?: string }) {
   const [mobileUI, setMobileUI] = useState<boolean>(false)
   const [mobile, setMobile] = useState<string>("")
   const [claim, setClaim] = useState<boolean>(false);
@@ -131,26 +131,59 @@ function Main({ cardData, onCancel, backendUrl, username,HOSPITAL_NAME,LOGO }: {
           return;
         }
 
+        // Try to extract returned queue item from backend response
+        const returnedItem: any = queue_inspect.data?.item || queue_inspect.data?.data || queue_inspect.data || {};
+        const assignedNumber = returnedItem.Q_number ?? returnedItem.Q_number ?? returnedItem?.Q_Number ?? null;
+
+        // show success and offer to print ticket
+        const title = assignedNumber ? `สำเร็จ! คิวของคุณคือ ${assignedNumber}` : 'สำเร็จ!';
+        const html = assignedNumber
+          ? `<div style="text-align:center"><h2 style="font-size:48px;margin:0;">${assignedNumber}</h2><div style="margin-top:8px;">${cardData?.thaiIDCardData.FULLNAME_TH || ''}</div><div style="margin-top:4px; font-size:12px; color:#666;">บริการ: รับบัตรคิว</div></div>`
+          : 'คุณได้ยืนยันการเข้ารับบัตรคิวเรียบร้อยแล้ว.';
+
+        const res = await Swal.fire({
+          title,
+          html,
+          icon: 'success',
+          showCancelButton: true,
+          confirmButtonText: 'พิมพ์ใบคิว',
+          cancelButtonText: 'ไม่พิมพ์',
+          width: 420,
+        });
+
+        if (res.isConfirmed && assignedNumber) {
+          // open a print window with simple ticket layout
+          try {
+            const w = window.open('', '_blank', 'width=400,height=600');
+            if (w) {
+              const now = new Date();
+              const htmlDoc = `<!doctype html><html><head><meta charset="utf-8"><title>ใบคิว</title><style>body{font-family: Arial, Helvetica, sans-serif; text-align:center; padding:20px;} .num{font-size:72px; font-weight:700; margin:20px 0;} .meta{font-size:14px; color:#444}</style></head><body>` +
+                `<div><img src="${LOGO || ''}" alt="logo" style="width:80px;height:80px;border-radius:50%;object-fit:cover"/></div>` +
+                `<div class="meta">${HOSPITAL_NAME || ''}</div>` +
+                `<div class="num">${assignedNumber}</div>` +
+                `<div class="meta">ชื่อ: ${cardData?.thaiIDCardData.FULLNAME_TH || ''}</div>` +
+                `<div class="meta">บริการ: รับบัตรคิว</div>` +
+                `<div class="meta" style="margin-top:12px; font-size:12px;">${now.toLocaleString()}</div>` +
+                `</body></html>`;
+              w.document.write(htmlDoc);
+              w.document.close();
+              // give browser a moment to render
+              setTimeout(() => {
+                try { w.print(); } catch (e) { console.warn('print failed', e); }
+              }, 300);
+            }
+          } catch (e) {
+            console.error('print error', e);
+          }
+        }
+
+        // After print choice or cancel, go back to main
         Swal.fire({
-          title: "สำเร็จ!",
-          text: "คุณได้ยืนยันการเข้ารับบัตรคิวเรียบร้อยแล้ว.",
-          icon: "success",
-          timer: 2000,
+          title: 'กลับสู่หน้าหลัก',
+          timer: 1500,
           timerProgressBar: true,
           showConfirmButton: false,
-        }).then(() => {
-          Swal.fire({
-            title: "กลับสู่หน้าหลัก",
-            timer: 3000,
-            timerProgressBar: true,
-            didOpen: () => {
-              Swal.showLoading();
-            }
-          }).then(() => {
-            onCancel();
-          });
-          
-        });
+        }).then(() => onCancel());
       }
     });
   }
