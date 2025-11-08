@@ -98,20 +98,20 @@ const BackendSetup: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center bg-gradient-subtle px-4">
             <div className="w-full max-w-xl">
                 <div className="text-center mb-6">
-                    <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">ตั้งค่า Backend</h1>
-                    <p className="text-muted-foreground mt-1">กรุณาใส่ URL ของ backend ของคุณ (เช่น http://localhost:8000)</p>
+                    <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">ตั้งค่า Server</h1>
+                    <p className="text-muted-foreground mt-1">กรุณาใส่ URL ของ server ของคุณ (เช่น http://192.168.0.158:8000)</p>
                 </div>
 
                 <div className="bg-card rounded-lg p-6 shadow-md">
                     <div className="mb-4">
-                        <label className="block text-sm font-medium text-muted-foreground mb-2">Backend URL</label>
-                        <Input value={url} onChange={(e) => setUrl((e.target as HTMLInputElement).value)} placeholder="http://localhost:8000" />
+                        <label className="block text-sm font-medium text-muted-foreground mb-2">Server URL</label>
+                        <Input value={url} onChange={(e) => setUrl((e.target as HTMLInputElement).value)} placeholder="http://192.168.0.158:8000" />
                     </div>
 
                     {/* If connectedUrl is set, require login first (preferred) then allow operatorName registration */}
                     {connectedUrl && jhcisSupported && (
                         <div className="mb-4">
-                            <label className="block text-sm font-medium text-muted-foreground mb-2">เข้าสู่ระบบ (ต้องล็อกอินก่อนกรอกชื่อพนักงาน)</label>
+                            <label className="block text-sm font-medium text-muted-foreground mb-2">เข้าสู่ระบบ</label>
                             {usernames && usernames.length > 0 ? (
                                 <select className="w-full border px-3 py-2 rounded mb-2" value={username} onChange={(e) => setUsername(e.target.value)}>
                                     <option value="">-- เลือกชื่อผู้ใช้งาน --</option>

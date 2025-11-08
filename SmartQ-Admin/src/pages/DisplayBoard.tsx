@@ -184,9 +184,8 @@ const DisplayBoard: React.FC = () => {
         <header className="text-center mb-8">
           <div className="inline-flex items-center gap-3 bg-sky-600/10 px-4 py-2 rounded-full shadow-sm">
             <Radio className="text-sky-600" />
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-sky-700">หน้าจอประกาศรวม</h1>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-sky-700">Announcement</h1>
           </div>
-          <p className="mt-3 text-sm sm:text-base text-slate-600">แสดงสถานะคิวปัจจุบันของแต่ละบริการ — ธีมโรงพยาบาล สีฟ้า ออกแบบให้ตอบสนองหน้าจอทุกขนาด</p>
         </header>
 
         <section className="grid grid-cols-2 gap-6">
@@ -203,7 +202,6 @@ const DisplayBoard: React.FC = () => {
                     <div className="flex items-center justify-between mb-3">
                     <div>
                       <h3 className="text-xl sm:text-2xl font-semibold text-sky-700 truncate">{s.label || s.name}</h3>
-                      <p className="text-sm text-slate-500 truncate">บริการ: {s.name}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium ${
