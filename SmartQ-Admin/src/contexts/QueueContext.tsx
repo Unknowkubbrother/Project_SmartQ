@@ -19,6 +19,8 @@ interface ServerHistoryItem {
   FULLNAME_TH: string;
   service?: string;
   counter?: string; // 👈 เพิ่ม counter
+  transferred?: boolean;
+  completed_by?: string;
 }
 
 interface QueueContextType {
@@ -29,7 +31,7 @@ interface QueueContextType {
   addQueue: (name: string) => Promise<void>;
   callNextQueue: (selectedCounter: string) => Promise<void>;
   callAgain: () => void;
-  completeQueue: (id: string) => void;
+  completeQueue: (id: string) => Promise<void>;
   setMute?: (muted: boolean) => Promise<void>;
 }
 
@@ -38,7 +40,7 @@ const QueueContext = createContext<QueueContextType | undefined>(undefined);
 export const QueueProvider = ({ children, serviceName = 'inspect' }: { children: ReactNode; serviceName?: string }) => {
   const [queues, setQueues] = useState<Queue[]>([]);
   const [currentQueue, setCurrentQueue] = useState<Queue | null>(null);
-  const { backendUrl } = useBackend();
+  const { backendUrl, operatorId } = useBackend();
   const wsRef = useRef<WebSocket | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
@@ -214,19 +216,24 @@ export const QueueProvider = ({ children, serviceName = 'inspect' }: { children:
     }).catch(console.error);
   };
 
-  const completeQueue = (id: string) => {
+  const completeQueue = async (id: string) => {
     if (!backendUrl) return;
     const q = currentQueue?.id === id ? currentQueue : queues.find(q => q.id === id);
     if (!q) return;
-    fetch(`${backendUrl.replace(/\/$/, '')}/api/queue/${serviceName}/complete`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        Q_number: q.queueNumber,
-        FULLNAME_TH: q.customerName,
-        service: serviceName,
-      }),
-    }).catch(console.error);
+    try {
+      await fetch(`${backendUrl.replace(/\/$/, '')}/api/queue/${serviceName}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          Q_number: q.queueNumber,
+          FULLNAME_TH: q.customerName,
+          service: serviceName,
+          completed_by: operatorId,
+        }),
+      });
+    } catch (e) {
+      console.error('completeQueue error', e);
+    }
   };
 
   return (

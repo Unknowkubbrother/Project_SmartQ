@@ -109,14 +109,8 @@ async def dequeue_item(service: str, payload: dict = {}):
     # เลือก counter จาก payload
     counter = payload.get("counter")
 
-    if manager.current:
-        prev = manager.current
-        # ensure history entry has transferred flag
-        hprev = {"Q_number": prev.get("Q_number"), "FULLNAME_TH": prev.get("FULLNAME_TH"), "service": service, "counter": prev.get("counter"), "transferred": False}
-        manager.history.insert(0, hprev)
-        if len(manager.history) > 50:
-            manager.history = manager.history[:50]
-        await manager.broadcast({"type": "complete", "Q_number": prev["Q_number"]})
+    # NOTE: do NOT auto-move current into history here. Only explicit /complete should append to history.
+    # This prevents items being treated as 'completed' when operator simply dequeues the next customer.
 
     if manager.queue:
         item = manager.queue.popleft()
@@ -162,7 +156,8 @@ async def complete_item(service: str, payload: dict):
     fullname = payload.get("FULLNAME_TH", "Unknown")
 
     # ใช้ service จาก URL
-    manager.history.insert(0, {"Q_number": qnum, "FULLNAME_TH": fullname, "service": service, "transferred": False})
+    completed_by = payload.get("completed_by")
+    manager.history.insert(0, {"Q_number": qnum, "FULLNAME_TH": fullname, "service": service, "transferred": False, "completed_by": completed_by})
     if len(manager.history) > 50:
         manager.history = manager.history[:50]
 

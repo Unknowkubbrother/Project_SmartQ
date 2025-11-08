@@ -4,14 +4,27 @@ import { Navigate } from 'react-router-dom';
 type BackendContextType = {
   backendUrl: string | null;
   setBackendUrl: (url: string | null) => void;
+  operatorId: string;
 };
 
 const BackendContext = React.createContext<BackendContextType | undefined>(undefined);
 
 export const BackendProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [backendUrl, setBackendUrl] = React.useState<string | null>(null);
+  // per-operator id stored in session so we can identify who completed items
+  const [operatorId, setOperatorId] = React.useState<string>(() => {
+    try {
+      const existing = sessionStorage.getItem('operatorId');
+      if (existing) return existing;
+      const id = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : `op-${Date.now()}-${Math.floor(Math.random()*10000)}`;
+      sessionStorage.setItem('operatorId', id);
+      return id;
+    } catch (e) {
+      return `op-${Date.now()}-${Math.floor(Math.random()*10000)}`;
+    }
+  });
   return (
-    <BackendContext.Provider value={{ backendUrl, setBackendUrl }}>
+    <BackendContext.Provider value={{ backendUrl, setBackendUrl, operatorId }}>
       {children}
     </BackendContext.Provider>
   );

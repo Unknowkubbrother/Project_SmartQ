@@ -15,7 +15,7 @@ interface ServiceInfo {
 
 const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = {}) => {
   const { currentQueue, callNextQueue, callAgain, completeQueue, serverStatus, setMute, history } = useQueue();
-  const { backendUrl } = useBackend();
+  const { backendUrl, operatorId } = useBackend();
 
   const [services, setServices] = useState<Record<string, ServiceInfo> | null>(null);
   const [selectedCounter, setSelectedCounter] = useState<string | null>(null);
@@ -64,18 +64,19 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
   // ฟังก์ชัน wrapper สำหรับเสร็จสิ้น: เรียก complete แล้วเปิด selector ให้เลือกคนที่เสร็จ
   const handleCompleteAndEnableTransfer = async () => {
     if (!currentQueue) return;
-    // call complete (fire and forget)
+    // call complete and wait for server to record completed_by
     try {
-      completeQueue(currentQueue.id);
+      await completeQueue(currentQueue.id);
     } catch (e) {
       console.error('completeQueue error', e);
     }
 
-    // build candidate list: put just-completed first, then history (avoid duplicates)
-    const justCompleted = { Q_number: currentQueue.queueNumber, FULLNAME_TH: currentQueue.customerName, service: currentQueue.service };
-    const mergedRaw = [justCompleted, ...(history || [])].filter((v, i, a) => a.findIndex(x => x.Q_number === v.Q_number) === i);
-  // remove any already-transferred items (server marks history entries with transferred: true)
-  const merged = mergedRaw.filter((x: any) => !(x as any).transferred);
+    // build candidate list: include just-completed first, then history items completed by this operator
+    const justCompleted = { Q_number: currentQueue.queueNumber, FULLNAME_TH: currentQueue.customerName, service: currentQueue.service, completed_by: undefined };
+    // prefer server history entries that were completed by this operator
+    const operatorHistory = (history || []).filter((h: any) => h.completed_by === (window.sessionStorage.getItem('operatorId') || ''));
+    const mergedRaw = [justCompleted, ...operatorHistory].filter((v: any, i: number, a: any[]) => a.findIndex(x => x.Q_number === v.Q_number) === i);
+    const merged = mergedRaw.filter((x: any) => !x.transferred);
     setCompletedCandidates(merged);
     setSelectedCompletedQnum(merged[0]?.Q_number ?? null);
     setAllowTransferSelection(merged.length > 0);
@@ -87,7 +88,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
     try {
       if ((!completedCandidates || completedCandidates.length === 0) && history && history.length > 0) {
         // history items are in the shape { Q_number, FULLNAME_TH, ... }
-  const filtered = (history as any[]).filter((h: any) => !(h as any).transferred);
+        const filtered = (history as any[]).filter((h: any) => !(h as any).transferred && h.completed_by === operatorId);
         setCompletedCandidates(filtered);
         // เปิดการเลือกถ้ามีรายการใน history เพราะผู้ปฏิบัติงานอาจคลิกเสร็จแล้วก่อนออกไป
         setAllowTransferSelection(filtered.length > 0);
