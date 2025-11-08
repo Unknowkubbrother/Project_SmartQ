@@ -68,12 +68,6 @@ const StartChoice: React.FC = () => {
             </Card>
           ))}
         </div>
-
-        <div className="mt-6">
-          <p className="text-sm text-muted-foreground">
-            หากยังไม่ได้ตั้งค่า backend URL, กรุณาไปที่หน้า <Button variant="ghost" size="sm" onClick={() => navigate('/setup')}>ตั้งค่า URL</Button>
-          </p>
-        </div>
       </div>
     </div>
   );

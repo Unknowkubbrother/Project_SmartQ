@@ -70,7 +70,9 @@ class QueueManager:
             h_copy = dict(h)
             cb = h_copy.get("completed_by")
             if cb:
-                h_copy["completed_by_name"] = get_operator_name(cb) or cb
+                name = get_operator_name(cb)
+                if name:
+                    h_copy["completed_by_name"] = name
             history_with_names.append(h_copy)
         await websocket.send_json({"type": "history", "history": history_with_names})
         await websocket.send_json({
@@ -184,7 +186,9 @@ async def complete_item(service: str, payload: dict):
         h_copy = dict(h)
         cb = h_copy.get("completed_by")
         if cb:
-            h_copy["completed_by_name"] = get_operator_name(cb) or cb
+            name = get_operator_name(cb)
+            if name:
+                h_copy["completed_by_name"] = name
         history_with_names.append(h_copy)
     await manager.broadcast({"type": "history", "history": history_with_names})
     await manager.broadcast_status()
@@ -286,7 +290,9 @@ async def transfer_item(service: str, payload: dict):
         h_copy = dict(h)
         cb = h_copy.get("completed_by")
         if cb:
-            h_copy["completed_by_name"] = get_operator_name(cb) or cb
+            name = get_operator_name(cb)
+            if name:
+                h_copy["completed_by_name"] = name
         history_with_names.append(h_copy)
     await manager.broadcast({"type": "history", "history": history_with_names})
     await manager.broadcast_status()

@@ -28,6 +28,7 @@
             ]
         },
         {
+            "label": "จ่ายยา 1",
             "name": "gmdc1",
             "counters":[
                 {"name": "ช่องจ่ายา 1", "code": "G1"},
