@@ -8,6 +8,27 @@ from src.router.queue import queue_router
 from src.router.nhso import nsho_router
 from src.config.config import get
 from src.lib.untils import image_to_data_uri
+import socket
+
+def get_local_ipv4():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "127.0.0.1"
+    finally:
+        s.close()
+    return ip
+
+ip = get_local_ipv4()
+
+# สี (ANSI)
+GREEN = "\033[92m"
+CYAN = "\033[96m"
+RESET = "\033[0m"
+
+print(f"🌐 IPV4 เครื่อง Server คือ {CYAN}{ip}{RESET}")
 
 # resource_path สำหรับ assets
 def resource_path(relative_path):
