@@ -9,7 +9,8 @@ hidden_imports = [
     'src.lib.utils',
     'src.database.database',
     'src.models.models',
-    'src.config.config'
+    'src.config.config',
+    'pymysql'
 ]
 
 a = Analysis(
