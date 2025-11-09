@@ -9,3 +9,4 @@ Rust
 build/
 dist/
 .DS_Store
+Release_smartq.zip
