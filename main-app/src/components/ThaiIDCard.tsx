@@ -25,9 +25,11 @@ const CIDFormat = (CID: string | null) => {
 }
 
 function ThaiIDCard({
-  cardData
+  cardData,
+  photoData
 }: {
   cardData: SmartQPayload | null;
+  photoData?: string | null;
 }) {
 
   return (
@@ -73,9 +75,9 @@ function ThaiIDCard({
 
           <div className="absolute top-16 right-8 md:relative md:top-0 md:right-0 flex flex-col items-center">
               <div className="relative">
-                {cardData?.image ? (
+                {photoData ? (
                   <img
-                    src={`data:image/jpeg;base64,${cardData?.image}`}
+                    src={`data:image/jpeg;base64,${photoData}`}
                     alt="ID Card Photo"
                     className="w-20 h-28 lg:w-24 lg:h-32 object-cover rounded-md border border-slate-200 shadow-sm"
                   />

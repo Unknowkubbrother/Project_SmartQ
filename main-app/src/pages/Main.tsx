@@ -7,7 +7,7 @@ import Swal from "sweetalert2";
 import ClaimUI from "@/components/ClaimUI";
 import MobileUI from "@/components/MobileUI";
 
-function Main({ cardData, onCancel, backendUrl, username,HOSPITAL_NAME, LOGO }: { cardData: SmartQPayload | null; onCancel: () => void; backendUrl?: string | null, username?: string, HOSPITAL_NAME?: string, LOGO?: string }) {
+function Main({ cardData, photoData, onCancel, backendUrl, username,HOSPITAL_NAME, LOGO }: { cardData: SmartQPayload | null; photoData: string | null; onCancel: () => void; backendUrl?: string | null, username?: string, HOSPITAL_NAME?: string, LOGO?: string }) {
   const [mobileUI, setMobileUI] = useState<boolean>(false)
   const [mobile, setMobile] = useState<string>("")
   const [claim, setClaim] = useState<boolean>(false);
@@ -242,7 +242,7 @@ function Main({ cardData, onCancel, backendUrl, username,HOSPITAL_NAME, LOGO }: 
             <div className="w-full flex flex-col  gap-6">
               {/* Left: ThaiIDCard box */}
               <div className="w-full bg-white rounded-xl shadow-inner">
-                <ThaiIDCard cardData={cardData} />
+                <ThaiIDCard cardData={cardData} photoData={photoData}/>
               </div>
 
               {/* Right: details and actions */}

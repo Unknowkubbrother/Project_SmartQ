@@ -12,7 +12,9 @@ try:
     password=config('DB.PASSWORD'),
     database=config('DB.DATABASE'),
     port=config('DB.PORT', 3306),
-    autocommit=True
+    autocommit=True,
+    charset="utf8",
+    use_unicode=True
   )
   db_cursor = connection.cursor()
 except Error as e:

@@ -4,7 +4,7 @@
     "LOGO_FILE": "logo.png",
     "DB": {
         "HOST": "localhost",
-        "PORT": 3306,
+        "PORT": 3333,
         "USERNAME": "root",
         "PASSWORD": "my-secret-pw",
         "DATABASE": "jhcisdb"

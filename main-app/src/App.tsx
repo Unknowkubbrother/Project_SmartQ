@@ -24,34 +24,32 @@ import {
 function App() {
     useEffect(() => {
     // ป้องกันคลิกขวา
-    const handleContextMenu = (e : any) => {
-      e.preventDefault();
-      alert('คลิกขวาถูกปิดใช้งาน!');
-    };
+    // const handleContextMenu = (e : any) => {
+    //   e.preventDefault();
+    // };
 
     // ป้องกัน Ctrl+C, Ctrl+U, Ctrl+Shift+I
     const handleKeyDown = (e : any) => {
       if (e.ctrlKey && (e.key === 'c' || e.key === 'u' || e.key === 's')) {
         e.preventDefault();
-        alert('ไม่สามารถคัดลอกหรือดู source ได้!');
       }
       if (e.ctrlKey && e.shiftKey && e.key === 'I') {
         e.preventDefault();
-        alert('ไม่อนุญาต DevTools!');
       }
     };
 
-    document.addEventListener('contextmenu', handleContextMenu);
+    // document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
 
     // ลบ event listener ตอน component ถูก unmount
     return () => {
-      document.removeEventListener('contextmenu', handleContextMenu);
+      // document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
   const [cardData, setCardData] = useState<SmartQPayload | null>(null);
+  const [photoData, setPhotoData] = useState<string | null>(null);
   const [incomingData, setIncomingData] = useState<SmartQPayload | null>(null);
   const [, setErrorMessage] = useState<string | null>(null);
   const [loadingMain, setLoadingMain] = useState(false);
@@ -92,6 +90,7 @@ function App() {
     let unlistenThaiidData: UnlistenFn | null = null;
     let unlistenError: UnlistenFn | null = null;
     let unlistenReader: UnlistenFn | null = null;
+    let unlistenPhoto: UnlistenFn | null = null;
 
     const setupListeners = async () => {
       unlistenThaiidData = await listen("thai_id_data", async (event) => {
@@ -103,9 +102,7 @@ function App() {
           dataObj[key?.trim()] = value?.trim();
         });
 
-
-        // Process the incoming data
-        const res = await axios.get(`${backendUrlRef.current}/api/nhso/smartcard_read`, { params: { readImageFlag: true } });
+        const res = await axios.get(`${backendUrlRef.current}/api/nhso/smartcard_read`, { params: { readImageFlag: false } });
 
         if (res.status !== 200) {
           throw new Error("ไม่สามารถอ่านบัตรประชาชนได้");
@@ -122,6 +119,12 @@ function App() {
         setLoadingMain(true);
       });
 
+      unlistenPhoto = await listen("thai_id_photo", (event) => {
+        const payload = event.payload;
+        const photoBase64 = payload as string;
+        setPhotoData(photoBase64);
+      });
+
       unlistenError = await listen("thai_id_error", (event) => {
         console.error("Error received:", event.payload);
         const payload = event.payload;
@@ -135,6 +138,7 @@ function App() {
         setIncomingData(null);
         setLoadingMain(false);
         setCardData(null);
+        setPhotoData(null);
         setProgress(0);
       });
 
@@ -158,6 +162,7 @@ function App() {
     setupListeners();
     return () => {
       if (unlistenThaiidData) unlistenThaiidData();
+      if (unlistenPhoto) unlistenPhoto();
       if (unlistenError) unlistenError();
       if (unlistenReader) unlistenReader();
     };
@@ -331,6 +336,7 @@ function App() {
         backendConnected && isAuthenticated && readerReady ? (
           <Main
             cardData={cardData}
+            photoData={photoData}
             onCancel={handleCancel}
             backendUrl={backendUrl}
             username={username}
