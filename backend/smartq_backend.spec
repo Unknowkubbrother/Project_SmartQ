@@ -3,10 +3,8 @@ from PyInstaller.utils.hooks import collect_submodules
 block_cipher = None
 
 hidden_imports = [
-    'src.router.nsho',
     'src.router.jhcis',
     'src.router.queue',
-    'src.lib.utils',
     'src.database.database',
     'src.models.models',
     'src.config.config',
@@ -16,7 +14,7 @@ hidden_imports = [
 a = Analysis(
     ['src/main.py'],
     pathex=['.'],
-    datas=[],                            # config + assets ไม่รวม
+    datas=[],
     hiddenimports=hidden_imports,
     hookspath=[],
     runtime_hooks=[],

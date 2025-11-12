@@ -3,37 +3,28 @@
     "HOSPITAL_NAME": "โรงพยาบาลส่งเสริมสุขภาพตำบลคลองบุหรี่",
     "LOGO_FILE": "logo.png",
     "DB": {
-        "HOST": "192.168.1.75",
+        "HOST": "localhost",
         "PORT": 3333,
         "USERNAME": "root",
         "PASSWORD": "123456",
         "DATABASE": "jhcisdb"
     },
-    "NHSO_AGENT_URL": "http://localhost:8189",
     "SERVICES": [
         {
             "label": "ตรวจโรคทั่วไป",
             "name": "inspect",
             "counters":[
-                {"name": "ช่องตรวจ 1", "code": "ช่องตรวจ 1"},
-                {"name": "ช่องตรวจ 2", "code": "ช่องตรวจ 2"},
-                {"name": "ช่องตรวจ 3", "code": "ช่องตรวจ 3"}
+                {"name": "ช่องตรวจ 1"},
+                {"name": "ช่องตรวจ 2"},
+                {"name": "ช่องตรวจ 3"}
             ]
         },
         {
             "label": "จ่ายยา",
             "name": "gmdc",
             "counters":[
-                {"name": "ช่องจ่ายยา 1", "code": "ช่องจ่ายยา 1"},
-                {"name": "ช่องจ่ายยา 2", "code": "ช่องจ่ายยา 2"}
-            ]
-        },
-        {
-            "label": "X-ray",
-            "name": "xray",
-            "counters":[
-                {"name": "ช่องx-ray 1", "code": "ช่องx-ray 1"},
-                {"name": "ช่องx-ray 2", "code": "ช่องx-ray 2"}
+                {"name": "ช่องจ่ายยา 1"},
+                {"name": "ช่องจ่ายยา 2"}
             ]
         }
     ]
