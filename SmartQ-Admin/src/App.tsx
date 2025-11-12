@@ -40,12 +40,12 @@ const CallQueueWrapper: React.FC = () => {
 
 const App = () => {
    useEffect(() => {
-    // ป้องกันคลิกขวา
-    // const handleContextMenu = (e : any) => {
-    //   e.preventDefault();
-    // };
+    
+    const handleContextMenu = (e : any) => {
+      e.preventDefault();
+    };
 
-    // ป้องกัน Ctrl+C, Ctrl+U, Ctrl+Shift+I
+
     const handleKeyDown = (e : any) => {
       if (e.ctrlKey && (e.key === 'c' || e.key === 'u' || e.key === 's')) {
         e.preventDefault();
@@ -55,12 +55,12 @@ const App = () => {
       }
     };
 
-    // document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
 
-    // ลบ event listener ตอน component ถูก unmount
+    
     return () => {
-      // document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
