@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 from src.router.jhcis import jhcis_router
 from src.router.queue import queue_router
-from src.config.config import get
+from src.config.config import get , resource_path
 import socket
 import base64
 
@@ -27,20 +27,11 @@ def get_local_ipv4():
 
 ip = get_local_ipv4()
 
-# สี (ANSI)
 GREEN = "\033[92m"
 CYAN = "\033[96m"
 RESET = "\033[0m"
 
 print(f"🌐 IPV4 เครื่อง Server คือ {CYAN}{ip}{RESET}")
-
-def resource_path(relative_path):
-    if getattr(sys, 'frozen', False):
-        base_path = os.path.dirname(sys.executable)
-    else:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_path, relative_path)
-
 
 ASSETS_DIR = resource_path("assets")
 if os.path.exists(ASSETS_DIR):

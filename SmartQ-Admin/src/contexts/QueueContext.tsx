@@ -10,7 +10,7 @@ export interface Queue {
   customerName: string;
   status: QueueStatus;
   timestamp: Date;
-  counter?: string; // 👈 เพิ่ม counter
+  counter?: string;
   service?: string;
 }
 
@@ -18,7 +18,7 @@ interface ServerHistoryItem {
   Q_number: number;
   FULLNAME_TH: string;
   service?: string;
-  counter?: string; // 👈 เพิ่ม counter
+  counter?: string;
   transferred?: boolean;
   completed_by?: string;
   completed_by_name?: string;
@@ -65,7 +65,6 @@ export const QueueProvider = ({ children, serviceName = 'inspect' }: { children:
     else if (wsUrl.startsWith('https://')) wsUrl = wsUrl.replace('https://', 'wss://');
     else wsUrl = 'ws://' + wsUrl;
 
-  // backend websocket path is mounted at /api/queue/ws/{service}
   wsUrl = `${wsUrl}/api/queue/ws/${serviceName}?role=${role}`;
 
     try {
@@ -122,7 +121,6 @@ export const QueueProvider = ({ children, serviceName = 'inspect' }: { children:
             if (role !== 'display') return;
             if (serverStatus?.muted) return;
             try {
-              // stop previous audio if playing
               if (audioRef.current) {
                 try {
                   audioRef.current.pause();

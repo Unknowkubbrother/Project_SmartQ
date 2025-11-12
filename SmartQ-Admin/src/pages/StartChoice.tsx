@@ -24,7 +24,6 @@ const StartChoice: React.FC = () => {
 
     const fetchServices = async () => {
       try {
-        // services are served under /api/queue/services
         const res = await fetch(`${backendUrl.replace(/\/$/, '')}/api/queue/services`);
         const data = await res.json();
         setServices(data);

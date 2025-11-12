@@ -26,12 +26,11 @@ const DisplayBoard: React.FC = () => {
   const [stateMap, setStateMap] = useState<Record<string, ServiceState>>({});
   const wsRefs = useRef<Record<string, WebSocket | null>>({});
   const audioRefs = useRef<Record<string, { audio: HTMLAudioElement | null; url: string | null }>>({});
-  const callTimersRef = useRef<Record<string, number | null>>({}); // เก็บ timers ของ animation
+  const callTimersRef = useRef<Record<string, number | null>>({});
 
   const { backendUrl } = useBackend();
 
   useEffect(() => {
-    // fetch service definitions
     const fetchServices = async () => {
       try {
         const base = backendUrl ? backendUrl.replace(/\/$/, '') : '';
@@ -47,7 +46,7 @@ const DisplayBoard: React.FC = () => {
   }, [backendUrl]);
 
   useEffect(() => {
-    // open websocket for each service
+    let mounted = true;
     services.forEach((s) => {
       const service = s.name;
       if (!backendUrl) return;
@@ -64,9 +63,7 @@ const DisplayBoard: React.FC = () => {
         ws.onmessage = (ev) => {
           try {
             const msg = JSON.parse(ev.data);
-            // ถ้าเป็นการอัปเดต current / audio ให้ตั้ง isCalling = true เพื่อแสดง animation ชั่วคราว
             const triggerCallAnimation = (duration = 2500) => {
-              // เคลียร์ timer เก่า
               if (callTimersRef.current[service]) {
                 clearTimeout(callTimersRef.current[service] as number);
                 callTimersRef.current[service] = null;
@@ -75,7 +72,6 @@ const DisplayBoard: React.FC = () => {
                 const cur = prev[service] || { name: service, label: s.label || service, current: null, next: null, queues: [], muted: false };
                 return { ...prev, [service]: { ...cur, isCalling: true } };
               });
-              // ปิด animation หลังจาก duration
               callTimersRef.current[service] = window.setTimeout(() => {
                 setStateMap(prev => {
                   const st = prev[service];
@@ -93,10 +89,8 @@ const DisplayBoard: React.FC = () => {
                 const next = queues.find((q: any) => true) || null;
                 return { ...prev, [service]: { ...cur, queues, next } };
               } else if (msg.type === 'current') {
-                // ถ้ามี item ใหม่ ให้ trigger animation
                 const newState = { ...cur, current: msg.item || null };
                 if (msg.item) {
-                  // ติด flag isCalling เพื่อเล่น animation
                   (newState as ServiceState).isCalling = true;
                 }
                 return { ...prev, [service]: newState };
@@ -110,10 +104,10 @@ const DisplayBoard: React.FC = () => {
               triggerCallAnimation();
             }
 
-            // play audio messages on display (per-service). stop prior audio for this service first.
+            
             if (msg.type === 'audio') {
+              if (!mounted) return;
               try {
-                // trigger animation เมื่อมี audio เรียก
                 triggerCallAnimation(3000);
 
                 const entry = audioRefs.current[service] || { audio: null, url: null };
@@ -132,9 +126,21 @@ const DisplayBoard: React.FC = () => {
                 const blob = new Blob([byteArray], { type: 'audio/mp3' });
                 const url = URL.createObjectURL(blob);
                 const audio = new Audio(url);
+              
+                try {
+                  const prev = audioRefs.current[service];
+                  if (prev?.audio) {
+                    try { prev.audio.pause(); prev.audio.src = ''; } catch (e) {}
+                  }
+                  if (prev?.url) {
+                    try { URL.revokeObjectURL(prev.url); } catch (e) {}
+                  }
+                } catch (e) {}
+
                 audioRefs.current[service] = { audio, url };
                 audio.play().catch(() => {});
                 audio.onended = () => {
+                  try { audio.pause(); audio.src = ''; } catch (e) {}
                   try { URL.revokeObjectURL(url); } catch (e) {}
                   if (audioRefs.current[service]?.audio === audio) audioRefs.current[service].audio = null;
                   if (audioRefs.current[service]?.url === url) audioRefs.current[service].url = null;
@@ -158,23 +164,26 @@ const DisplayBoard: React.FC = () => {
     });
 
     return () => {
+      mounted = false;
+      
       Object.values(wsRefs.current).forEach((w) => w && w.close());
-      // เคลียร์ timers animation
+      
       Object.values(callTimersRef.current).forEach(t => t && clearTimeout(t));
       callTimersRef.current = {};
-      // ปิด audio และ revoke urls
+      
       Object.values(audioRefs.current).forEach(entry => {
         try {
           if (entry?.audio) {
-            entry.audio.pause();
+            try { entry.audio.pause(); entry.audio.onended = null; entry.audio.src = ''; } catch (e) {}
             entry.audio = null;
           }
           if (entry?.url) {
-            URL.revokeObjectURL(entry.url);
+            try { URL.revokeObjectURL(entry.url); } catch (e) {}
             entry.url = null;
           }
         } catch (e) {}
       });
+      audioRefs.current = {};
     };
   }, [services]);
 
@@ -215,7 +224,6 @@ const DisplayBoard: React.FC = () => {
 
                     <div className="flex items-center gap-6">
                     <div
-                      // ใส่ animation เมื่อ isCalling = true
                       className={`flex-shrink-0 w-36 h-36 sm:w-44 sm:h-44 rounded-xl bg-gradient-to-br from-sky-600 to-sky-500 text-white flex items-center justify-center shadow-inner transition-transform duration-300 ${
                       st?.isCalling ? 'scale-105 ring-4 ring-sky-300/60' : ''
                       }`}

@@ -13,7 +13,6 @@ const BackendContext = React.createContext<BackendContextType | undefined>(undef
 
 export const BackendProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [backendUrl, setBackendUrl] = React.useState<string | null>(null);
-  // per-operator id stored in session so we can identify who completed items
   const [operatorId, setOperatorId] = React.useState<string>(() => {
     try {
       const existing = sessionStorage.getItem('operatorId');
@@ -45,7 +44,6 @@ export const useBackend = () => {
   return ctx;
 };
 
-// Component to require backend to be set for route children
 export const RequireBackend: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { backendUrl } = useBackend();
   if (!backendUrl) return <Navigate to="/setup" replace />;

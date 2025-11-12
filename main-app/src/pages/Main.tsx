@@ -92,8 +92,8 @@ function Main({ cardData, photoData, onCancel, backendUrl, username,HOSPITAL_NAM
           const d = new Date(created);
           if (!isNaN(d.getTime())) {
             const Y = d.getFullYear();
-            const M = d.getMonth() + 1; // no leading zero
-            const D = d.getDate(); // no leading zero
+            const M = d.getMonth() + 1;
+            const D = d.getDate();
             const hh = String(d.getHours()).padStart(2, "0");
             const mm = String(d.getMinutes()).padStart(2, "0");
             const ss = String(d.getSeconds()).padStart(2, "0");
@@ -131,11 +131,11 @@ function Main({ cardData, photoData, onCancel, backendUrl, username,HOSPITAL_NAM
           return;
         }
 
-        // Try to extract returned queue item from backend response
+        
         const returnedItem: any = queue_inspect.data?.item || queue_inspect.data?.data || queue_inspect.data || {};
         const assignedNumber = returnedItem.Q_number ?? returnedItem.Q_number ?? returnedItem?.Q_Number ?? null;
 
-        // show success and offer to print ticket
+        
         const title = assignedNumber ? `สำเร็จ! คิวของคุณคือ ${assignedNumber}` : 'สำเร็จ!';
         const html = assignedNumber
           ? `<div style="text-align:center"><h2 style="font-size:48px;margin:0;">${assignedNumber}</h2><div style="margin-top:8px;">${cardData?.thaiIDCardData.FULLNAME_TH || ''}</div><div style="margin-top:4px; font-size:12px; color:#666;">บริการ: รับบัตรคิว</div></div>`
@@ -152,7 +152,7 @@ function Main({ cardData, photoData, onCancel, backendUrl, username,HOSPITAL_NAM
         });
 
         if (res.isConfirmed && assignedNumber) {
-          // open a print window with simple ticket layout
+          
           try {
             const w = window.open('', '_blank', 'width=400,height=600');
             if (w) {
@@ -167,7 +167,7 @@ function Main({ cardData, photoData, onCancel, backendUrl, username,HOSPITAL_NAM
                 `</body></html>`;
               w.document.write(htmlDoc);
               w.document.close();
-              // give browser a moment to render
+              
               setTimeout(() => {
                 try { w.print(); } catch (e) { console.warn('print failed', e); }
               }, 300);
@@ -177,7 +177,7 @@ function Main({ cardData, photoData, onCancel, backendUrl, username,HOSPITAL_NAM
           }
         }
 
-        // After print choice or cancel, go back to main
+        
         Swal.fire({
           title: 'กลับสู่หน้าหลัก',
           timer: 1500,
@@ -234,18 +234,17 @@ function Main({ cardData, photoData, onCancel, backendUrl, username,HOSPITAL_NAM
         </div>
       </header>
 
-      {/* Content Card */}
+      
       <section className="w-full max-w-4xl mt-2">
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl py-1 px-4 lg:p-8 divide-y">
-          {/* Card top: info */}
+          
           <div className="pb-4">
             <div className="w-full flex flex-col  gap-6">
-              {/* Left: ThaiIDCard box */}
+              
               <div className="w-full bg-white rounded-xl shadow-inner">
                 <ThaiIDCard cardData={cardData} photoData={photoData}/>
               </div>
 
-              {/* Right: details and actions */}
               <div className="w-full flex flex-col gap-4">
 
                 <div className="w-full flex flex-col sm:flex-row gap-3 mt-auto lg:justify-center lg:items-center">
@@ -278,7 +277,7 @@ function Main({ cardData, photoData, onCancel, backendUrl, username,HOSPITAL_NAM
         </div>
       </section>
 
-      {/* Claim UI overlay (keeps original behavior) */}
+      
       {!claim && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-2xl">

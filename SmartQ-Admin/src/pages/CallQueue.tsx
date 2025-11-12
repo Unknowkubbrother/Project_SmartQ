@@ -10,7 +10,7 @@ import { useLocation } from 'react-router-dom';
 
 interface ServiceInfo {
   name: string;
-  counters: { name: string;}[];
+  counters: { name: string; }[];
 }
 
 const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = {}) => {
@@ -28,14 +28,10 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
   const params = new URLSearchParams(location.search);
   const serviceName = propServiceName || params.get('service') || 'inspect';
 
-  // server-side transfer will mark items as transferred; frontend filters by 'transferred' flag from history
-
-  // ดึงข้อมูลบริการและ counter จาก backend
   useEffect(() => {
     if (!backendUrl) return;
     const fetchServices = async () => {
       try {
-        // services endpoint is under /api/queue/services
         const res = await fetch(backendUrl.replace(/\/$/, '') + '/api/queue/services');
         if (res.ok) {
           const data = await res.json();
@@ -53,28 +49,22 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
     fetchServices();
   }, [backendUrl, serviceName]);
 
-  // เรียกคิวถัดไป พร้อมส่ง counter
   const handleCallNext = async () => {
     if (!selectedCounter) return alert('กรุณาเลือกช่องบริการก่อนเรียกคิว');
 
-    // ส่ง counter ผ่าน context callNextQueue
     if (callNextQueue) await callNextQueue(selectedCounter);
   };
 
-  // ฟังก์ชัน wrapper สำหรับเสร็จสิ้น: เรียก complete แล้วเปิด selector ให้เลือกคนที่เสร็จ
   const handleCompleteAndEnableTransfer = async () => {
     if (!currentQueue) return;
-    // call complete and wait for server to record completed_by
     try {
       await completeQueue(currentQueue.id);
     } catch (e) {
       console.error('completeQueue error', e);
     }
 
-    // build candidate list: include just-completed first, then history items completed by this operator
-  const justCompleted = { Q_number: currentQueue.queueNumber, FULLNAME_TH: currentQueue.customerName, service: currentQueue.service, completed_by: operatorId, completed_by_name: operatorName };
-  // prefer server history entries that were completed by this operator
-  const operatorHistory = (history || []).filter((h: any) => h.completed_by === operatorId);
+    const justCompleted = { Q_number: currentQueue.queueNumber, FULLNAME_TH: currentQueue.customerName, service: currentQueue.service, completed_by: operatorId, completed_by_name: operatorName };
+    const operatorHistory = (history || []).filter((h: any) => h.completed_by === operatorId);
     const mergedRaw = [justCompleted, ...operatorHistory].filter((v: any, i: number, a: any[]) => a.findIndex(x => x.Q_number === v.Q_number) === i);
     const merged = mergedRaw.filter((x: any) => !x.transferred);
     setCompletedCandidates(merged);
@@ -82,26 +72,21 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
     setAllowTransferSelection(merged.length > 0);
   };
 
-  // ถ้ากลับมาหน้านี้ใหม่ ให้เติม completedCandidates จาก history (เพื่อให้ selector ยังคงใช้งานได้)
-  // จะเติมเฉพาะเมื่อยังไม่มี completedCandidates อยู่แล้ว แต่มี history จากเซิร์ฟเวอร์
+
   useEffect(() => {
     try {
       if ((!completedCandidates || completedCandidates.length === 0) && history && history.length > 0) {
-        // history items are in the shape { Q_number, FULLNAME_TH, ... }
         const filtered = (history as any[]).filter((h: any) => !(h as any).transferred && h.completed_by === operatorId);
         setCompletedCandidates(filtered);
-        // เปิดการเลือกถ้ามีรายการใน history เพราะผู้ปฏิบัติงานอาจคลิกเสร็จแล้วก่อนออกไป
         setAllowTransferSelection(filtered.length > 0);
-        // preselect the most recent history item
         setSelectedCompletedQnum(filtered[0]?.Q_number ?? null);
       }
     } catch (e) {
       console.error('Failed to restore completed candidates from history', e);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [history]);
 
-  // ส่งต่อบริการ: เอารายชื่อที่เลือก (จากรายการคนที่เสร็จแล้ว) ไป enqueue ที่บริการเป้าหมาย
   const handleTransfer = async () => {
     if (!transferTarget) return alert('กรุณาเลือกบริการเป้าหมาย');
     if (!selectedCompletedQnum) return alert('กรุณาเลือกผู้ใช้ที่เสร็จแล้วเพื่อส่งต่อ');
@@ -110,7 +95,6 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
 
     try {
       const base = backendUrl ? backendUrl.replace(/\/$/, '') : '';
-      // call server-side transfer endpoint on the source service
       const endpoint = `${base}/api/queue/${serviceName}/transfer`;
       const resp = await fetch(endpoint, {
         method: 'POST',
@@ -122,7 +106,6 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
         throw new Error(j?.error || 'transfer failed');
       }
 
-      // optimistically remove from local candidates; server will broadcast history update via WS
       setCompletedCandidates(prev => prev.filter(c => c.Q_number !== selectedCompletedQnum));
       setSelectedCompletedQnum(null);
       setTransferTarget(null);
@@ -133,28 +116,24 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
     }
   };
 
-  // ข้ามคิว: เอาผู้ใช้ปัจจุบันไปต่อท้ายคิว (enqueue) แล้วทำการ complete คิวปัจจุบัน
   const handleSkip = async () => {
     if (!currentQueue) return alert('ไม่มีคิวที่กำลังเรียกเพื่อข้าม');
     if (!backendUrl) return alert('ยังไม่ได้ตั้งค่า backend URL');
     setIsSkipping(true);
     try {
       const base = backendUrl.replace(/\/$/, '');
-      // 1) enqueue the same person to the same service -> goes to back of queue
       await fetch(`${base}/api/queue/${serviceName}/enqueue`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ FULLNAME_TH: currentQueue.customerName }),
       });
 
-      // 2) complete the current queue item so it's removed from current
       await fetch(`${base}/api/queue/${serviceName}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ Q_number: currentQueue.queueNumber, FULLNAME_TH: currentQueue.customerName, service: serviceName }),
       });
 
-      // reset local transfer-selection state (if any)
       setAllowTransferSelection(false);
       setCompletedCandidates(prev => prev.filter(c => c.Q_number !== currentQueue.queueNumber));
 
@@ -178,7 +157,6 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
   return (
     <div className="min-h-screen bg-gradient-subtle py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
             หน้าเรียกคิว
@@ -191,7 +169,6 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           </div>
         </div>
 
-        {/* Counter Selection */}
         {services && services[serviceName] && (
           <Card className="mb-6 p-4">
             <h3 className="font-semibold mb-2">เลือกช่องบริการ</h3>
@@ -210,7 +187,6 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           </Card>
         )}
 
-        {/* Current Queue */}
         <Card className="p-8 shadow-lg border-border/50 bg-gradient-card mb-6">
           <div className="text-center mb-6">
             <Badge variant="secondary" className="mb-4">
@@ -272,8 +248,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           )}
         </Card>
 
-  {/* Action Buttons */}
-  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Button
             onClick={handleCallNext}
             size="lg"
@@ -317,7 +292,6 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           </Button>
         </div>
 
-        {/* Transfer to another service (requires completing a user first) */}
         <Card className="mb-6 p-4">
           <h3 className="font-semibold mb-2">ส่งต่อผู้ใช้ไปยังบริการอื่น</h3>
           <div className="flex flex-col gap-3">
@@ -358,7 +332,6 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           </div>
         </Card>
 
-        {/* Footer Controls */}
         <div className="flex items-center justify-between">
           <Link to="/">
             <Button variant="ghost">← กลับหน้ารายการคิว</Button>

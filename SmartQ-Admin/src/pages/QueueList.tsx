@@ -49,12 +49,8 @@ const QueueList = () => {
 
   const waitingCount = queues.length;
   const callingCount = currentQueue ? 1 : 0;
-  // Exclude the currently calling item from the recent history list and completed count
   const displayedHistory = history ? history.filter(h => String(h.Q_number) !== currentQueue?.id) : [];
   const completedCount = serverStatus?.processed_count ?? displayedHistory.length;
-
-  // If there's a currentQueue that was dequeued from server, it may not be present in `queues` list
-  // Show it at the top of the table so operators see the 'calling' status in the full list.
   const displayQueues = currentQueue
     ? [currentQueue, ...queues.filter(q => q.id !== currentQueue.id)]
     : queues;
