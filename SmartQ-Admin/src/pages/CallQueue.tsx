@@ -10,7 +10,7 @@ import { useLocation } from 'react-router-dom';
 
 interface ServiceInfo {
   name: string;
-  counters: { name: string; code: string }[];
+  counters: { name: string;}[];
 }
 
 const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = {}) => {
@@ -43,7 +43,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           data.forEach((s: any) => serviceMap[s.name] = s);
           setServices(serviceMap);
           if (serviceMap[serviceName] && serviceMap[serviceName].counters.length > 0) {
-            setSelectedCounter(serviceMap[serviceName].counters[0].code);
+            setSelectedCounter(serviceMap[serviceName].counters[0].name);
           }
         }
       } catch (e) {
@@ -198,10 +198,10 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
             <div className="flex flex-wrap gap-2">
               {services[serviceName].counters.map(c => (
                 <Button
-                  key={c.code}
+                  key={c.name}
                   size="sm"
-                  variant={selectedCounter === c.code ? 'default' : 'outline'}
-                  onClick={() => setSelectedCounter(c.code)}
+                  variant={selectedCounter === c.name ? 'default' : 'outline'}
+                  onClick={() => setSelectedCounter(c.name)}
                 >
                   {c.name}
                 </Button>
@@ -243,11 +243,10 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
                 <p className="text-3xl font-bold text-foreground">{currentQueue.customerName}</p>
               </div>
 
-              {/* แสดง counter ของคิวปัจจุบัน */}
+
               {currentQueue.counter && (
                 <div className="text-center">
                   <div className="inline-flex items-center gap-2 px-6 py-3 bg-primary/10 rounded-lg">
-                    <span className="text-muted-foreground">ช่องบริการ</span>
                     <span className="text-2xl font-bold text-primary">{currentQueue.counter}</span>
                   </div>
                 </div>

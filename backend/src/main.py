@@ -5,11 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 from src.router.jhcis import jhcis_router
 from src.router.queue import queue_router
-from src.router.nhso import nsho_router
 from src.config.config import get
-from src.lib.untils import image_to_data_uri
 import socket
+import base64
 
+def image_to_data_uri(path: str, mime_type: str = "image/png") -> str:
+    with open(path, "rb") as image_file:
+        encoded = base64.b64encode(image_file.read()).decode("utf-8")
+        return f"data:{mime_type};base64,{encoded}"
+    z
 def get_local_ipv4():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -30,22 +34,21 @@ RESET = "\033[0m"
 
 print(f"🌐 IPV4 เครื่อง Server คือ {CYAN}{ip}{RESET}")
 
-# resource_path สำหรับ assets
 def resource_path(relative_path):
     if getattr(sys, 'frozen', False):
-        base_path = os.path.dirname(sys.executable)  # path EXE
+        base_path = os.path.dirname(sys.executable)
     else:
-        base_path = os.path.dirname(os.path.abspath(__file__))  # path .py
+        base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
 
-# assets directory
+
 ASSETS_DIR = resource_path("assets")
 if os.path.exists(ASSETS_DIR):
     print("Assets found:", os.listdir(ASSETS_DIR))
 else:
     print("No assets folder found.")
 
-# FastAPI app
+
 app = FastAPI(title="SmartQ Voice Backend", version="1.0.0")
 
 app.add_middleware(
@@ -77,17 +80,15 @@ def initial():
         logging.exception("Unhandled error in /api/initial")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-# include routers
 app.include_router(queue_router, prefix="/api/queue")
 app.include_router(jhcis_router, prefix="/api/jhcis")
-app.include_router(nsho_router, prefix="/api/nhso")
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        app,              # ใช้ตัว app object โดยตรง
+        app,
         host="0.0.0.0",
         port=8000,
         log_level="info",
-        reload=False      # ไม่ใช้ reload บน EXE
+        reload=False
     )

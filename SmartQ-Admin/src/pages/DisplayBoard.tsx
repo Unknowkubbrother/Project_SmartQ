@@ -223,7 +223,7 @@ const DisplayBoard: React.FC = () => {
                       {current ? (
                       <div className="text-center">
                         <div className="text-4xl sm:text-5xl font-extrabold tracking-tight">{current.Q_number}</div>
-                        <div className="text-sm sm:text-base opacity-95">{current.counter ? `ช่อง ${current.counter}` : 'รอเรียก'}</div>
+                        <div className="text-sm sm:text-base opacity-95">{current.counter ? `${current.counter}` : 'รอเรียก'}</div>
                       </div>
                       ) : (
                       <div className="text-center text-sky-100">

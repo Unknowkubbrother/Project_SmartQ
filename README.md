@@ -19,7 +19,5 @@ build
 To build the project for production, run:
   bun tauri build --bundles app
 
-http://192.168.0.158:8000
-
 backend start
 uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload

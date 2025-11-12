@@ -102,14 +102,16 @@ function App() {
           dataObj[key?.trim()] = value?.trim();
         });
 
-        const res = await axios.get(`${backendUrlRef.current}/api/nhso/smartcard_read`, { params: { readImageFlag: false } });
+        const res = await axios.get(`http://localhost:8189/api/smartcard/read`, { params: { readImageFlag: false } });
 
         if (res.status !== 200) {
           throw new Error("ไม่สามารถอ่านบัตรประชาชนได้");
         }
 
+        console.log(res.data)
+
         const personalObj = {
-          ...res.data.data as SmartQPayload,
+          ...res.data as SmartQPayload,
           thaiIDCardData: dataObj as ThaiIDCardData
         }
         setIncomingData(personalObj);

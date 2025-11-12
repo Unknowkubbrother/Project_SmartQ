@@ -63,7 +63,7 @@ function Main({ cardData, photoData, onCancel, backendUrl, username,HOSPITAL_NAM
           return;
         }
 
-        const claimData = await axios.post(backendUrl + '/api/nhso/confirm_save', {
+        const claimData = await axios.post('http://localhost:8189/api/nhso-service/confirm-save' , {
           pid: cardData?.pid,
           claimType: cardData?.claimTypes?.[0]?.claimType,
           mobile: mobile,
