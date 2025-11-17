@@ -12,6 +12,7 @@ from tkinter.colorchooser import askcolor
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 from tkinter.scrolledtext import ScrolledText
+import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, 'config', 'config.json')
@@ -26,6 +27,9 @@ class BackendGUI:
         self.queue = queue.Queue()
         self.config = {}
         self.current_service_index = None
+
+        self.ansi_escape_regex = re.compile(r'\x1b\[([\d;]*)m')
+        self.current_tags = [] 
 
         self._build_ui()
         self._load_config()
@@ -151,13 +155,13 @@ class BackendGUI:
         term_group = tb.Labelframe(ctrl_term_frame, text='Terminal Log', padding=10)
         term_group.pack(side=TOP, fill=BOTH, expand=True)
         
-        self.terminal = ScrolledText(term_group, wrap='word', height=20, state='disabled', bg='black', fg='white', font=('Consolas', 10) if os.name == 'nt' else ('Monaco', 11))
+        self.terminal_font_tuple = ('Consolas', 10) if os.name == 'nt' else ('Monaco', 11)
+        self.terminal = ScrolledText(term_group, wrap='word', height=20, state='disabled', bg='black', fg='white', font=self.terminal_font_tuple)
         self.terminal.pack(fill=BOTH, expand=True)
+        
+        self._configure_ansi_tags()
 
     def _choose_color(self):
-        """
-        Opens the color picker dialog and updates the color entry and preview.
-        """
         initial_color = self.svc_color_entry.get()
         if not initial_color.startswith('#'):
             initial_color = '#FFFFFF'
@@ -174,10 +178,6 @@ class BackendGUI:
                 self.svc_color_preview.config(background='#FFFFFF')
 
     def _browse_logo(self):
-        """
-        Open a file dialog to select an image, copy it to the 'assets'
-        folder, and put just the filename in the logo_entry.
-        """
         assets_dir = os.path.join(HERE, 'assets')
         
         try:
@@ -384,6 +384,9 @@ class BackendGUI:
         if self.proc and self.proc.poll() is None:
             messagebox.showinfo('Server', 'Server is already running')
             return
+        
+        self.current_tags = []
+        
         venv_py = None
         candidate = os.path.join(HERE, '.venv', 'bin', 'python')
         if os.name == 'nt':
@@ -417,6 +420,7 @@ class BackendGUI:
             self._write_to_terminal(f'Attempting module start: {cmd_module}\n')
             env = os.environ.copy()
             env['SMARTQ_PORT'] = str(port_to_use)
+            env['FORCE_COLOR'] = '1' 
             self.proc = subprocess.Popen(cmd_module, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
                                          text=True, encoding='utf-8', errors='replace')
             self.thread = threading.Thread(target=self._reader_thread, daemon=True)
@@ -427,6 +431,7 @@ class BackendGUI:
                 self._write_to_terminal(f'Attempting file start: {cmd_file}\n')
                 env = os.environ.copy()
                 env['SMARTQ_PORT'] = str(port_to_use)
+                env['FORCE_COLOR'] = '1'
                 self.proc = subprocess.Popen(cmd_file, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
                                              text=True, encoding='utf-8', errors='replace')
                 self.thread = threading.Thread(target=self._reader_thread, daemon=True)
@@ -530,9 +535,119 @@ class BackendGUI:
             pass
         self.root.after(200, self._poll_queue)
 
+    def _configure_ansi_tags(self):
+        base_font_family = self.terminal_font_tuple[0]
+        base_font_size = self.terminal_font_tuple[1]
+        
+        self.tag_configs = {
+            'fg_black':   {'foreground': '#2e3436'},
+            'fg_red':     {'foreground': '#cc0000'},
+            'fg_green':   {'foreground': '#4e9a06'},
+            'fg_yellow':  {'foreground': '#c4a000'},
+            'fg_blue':    {'foreground': '#3465a4'},
+            'fg_magenta': {'foreground': '#75507b'},
+            'fg_cyan':    {'foreground': '#06989a'},
+            'fg_white':   {'foreground': '#d3d7cf'},
+            'fg_br_black':  {'foreground': '#555753'},
+            'fg_br_red':    {'foreground': '#ef2929'},
+            'fg_br_green':  {'foreground': '#8ae234'},
+            'fg_br_yellow': {'foreground': 'yellow1'},
+            'fg_br_blue':   {'foreground': '#729fcf'},
+            'fg_br_magenta':{'foreground': '#ad7fa8'},
+            'fg_br_cyan':   {'foreground': '#34e2e2'},
+            'fg_br_white':  {'foreground': '#eeeeec'},
+
+            'bg_black':   {'background': '#2e3436'},
+            'bg_red':     {'background': '#cc0000'},
+            'bg_green':   {'background': '#4e9a06'},
+            'bg_yellow':  {'background': 'yellow1'},
+            'bg_blue':    {'background': '#3465a4'},
+            'bg_magenta': {'background': '#75507b'},
+            'bg_cyan':    {'background': '#06989a'},
+            'bg_white':   {'background': '#d3d7cf'},
+
+            'style_bold':   {'font': (base_font_family, base_font_size, 'bold')},
+            'style_italic': {'font': (base_font_family, base_font_size, 'italic')},
+            'style_underline': {'underline': 1},
+        }
+
+        self.sgr_to_tag = {
+            '0': 'reset_all',
+            '1': 'style_bold',
+            '3': 'style_italic',
+            '4': 'style_underline',
+            
+            '22': 'reset_bold',
+            '23': 'reset_italic',
+            '24': 'reset_underline',
+            '39': 'reset_fg',
+            '49': 'reset_bg',
+
+            '30': 'fg_black', '31': 'fg_red', '32': 'fg_green', '33': 'fg_yellow',
+            '34': 'fg_blue', '35': 'fg_magenta', '36': 'fg_cyan', '37': 'fg_white',
+            
+            '90': 'fg_br_black', '91': 'fg_br_red', '92': 'fg_br_green', '93': 'fg_br_yellow',
+            '94': 'fg_br_blue', '95': 'fg_br_magenta', '96': 'fg_br_cyan', '97': 'fg_br_white',
+
+            '40': 'bg_black', '41': 'bg_red', '42': 'bg_green', '43': 'bg_yellow',
+            '44': 'bg_blue', '45': 'bg_magenta', '46': 'bg_cyan', '47': 'bg_white',
+        }
+        
+        for tag_name, config in self.tag_configs.items():
+            self.terminal.tag_configure(tag_name, **config)
+
+        self.terminal.tag_configure('reset_fg', foreground='white')
+        self.terminal.tag_configure('reset_bg', background='black')
+        self.terminal.tag_configure('reset_bold', font=(base_font_family, base_font_size, 'normal'))
+        self.terminal.tag_configure('reset_italic', font=(base_font_family, base_font_size, 'normal'))
+        self.terminal.tag_configure('reset_underline', underline=0)
+
     def _write_to_terminal(self, text):
         self.terminal.config(state='normal')
-        self.terminal.insert(tk.END, text)
+        
+        parts = self.ansi_escape_regex.split(text)
+        
+        if parts[0]:
+            self.terminal.insert(tk.END, parts[0], tuple(self.current_tags))
+        
+        for sgr_codes, text_segment in zip(parts[1::2], parts[2::2]):
+            
+            if not sgr_codes:
+                sgr_codes = '0'
+                
+            codes = sgr_codes.split(';')
+            for code in codes:
+                tag_name = self.sgr_to_tag.get(code)
+
+                if tag_name == 'reset_all':
+                    self.current_tags.clear()
+                elif tag_name == 'reset_fg':
+                    self.current_tags = [t for t in self.current_tags if not t.startswith('fg_')]
+                elif tag_name == 'reset_bg':
+                    self.current_tags = [t for t in self.current_tags if not t.startswith('bg_')]
+                elif tag_name == 'reset_bold':
+                    if 'style_bold' in self.current_tags:
+                        self.current_tags.remove('style_bold')
+                elif tag_name == 'reset_italic':
+                    if 'style_italic' in self.current_tags:
+                        self.current_tags.remove('style_italic')
+                elif tag_name == 'reset_underline':
+                    if 'style_underline' in self.current_tags:
+                        self.current_tags.remove('style_underline')
+                
+                elif tag_name and tag_name.startswith('fg_'):
+                    self.current_tags = [t for t in self.current_tags if not t.startswith('fg_')]
+                    self.current_tags.append(tag_name)
+                elif tag_name and tag_name.startswith('bg_'):
+                    self.current_tags = [t for t in self.current_tags if not t.startswith('bg_')]
+                    self.current_tags.append(tag_name)
+                elif tag_name and tag_name.startswith('style_'):
+                    if tag_name not in self.current_tags:
+                        self.current_tags.append(tag_name)
+
+            if text_segment:
+                self.terminal.insert(tk.END, text_segment, tuple(self.current_tags))
+
         self.terminal.see(tk.END)
         self.terminal.config(state=tk.DISABLED)
 
@@ -540,6 +655,7 @@ class BackendGUI:
         self.terminal.config(state=tk.NORMAL)
         self.terminal.delete('1.0', tk.END)
         self.terminal.config(state=tk.DISABLED)
+        self.current_tags = []
 
 
 if __name__ == '__main__':
