@@ -1,5 +1,4 @@
 import os
-import sys
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import logging
@@ -76,10 +75,15 @@ app.include_router(jhcis_router, prefix="/api/jhcis")
 
 if __name__ == "__main__":
     import uvicorn
+    # Allow overriding the port via environment variable SMARTQ_PORT
+    try:
+        port = int(os.environ.get('SMARTQ_PORT', '8000'))
+    except Exception:
+        port = 8000
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8000,
+        port=port,
         log_level="info",
         reload=False
     )

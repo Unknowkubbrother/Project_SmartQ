@@ -1,6 +1,8 @@
 fastapi
-uvicorn
+uvicorn[standard]
 gtts
 mysql-connector-python
 numpy
 pymysql
+ttkbootstrap
+websockets

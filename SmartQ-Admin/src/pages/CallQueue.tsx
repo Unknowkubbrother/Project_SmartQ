@@ -320,7 +320,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
                 <option value="">-- เลือกบริการปลายทาง --</option>
                 {services && Object.keys(services).map(key => (
                   key === serviceName ? null : (
-                    <option key={key} value={key}>{(services as any)[key].name || key}</option>
+                    <option key={key} value={key}>{(services as any)[key].label || key}</option>
                   )
                 ))}
               </select>
