@@ -9,6 +9,7 @@ interface ServiceDef {
   name: string;
   label?: string;
   counters?: { name: string; code: string }[];
+  color?: string;
 }
 
 interface ServiceState {
@@ -18,7 +19,7 @@ interface ServiceState {
   next: any | null;
   queues: any[];
   muted?: boolean;
-  isCalling?: boolean; // เพิ่ม flag สำหรับ animation
+  isCalling?: boolean;
 }
 
 const DisplayBoard: React.FC = () => {
@@ -202,6 +203,7 @@ const DisplayBoard: React.FC = () => {
             const st = stateMap[s.name];
             const current = st?.current;
             const next = st?.next;
+            const color = s.color || 'from-sky-600 to-sky-500';
 
             return (
                 <Card key={s.name} className="p-6 sm:p-7 border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-white/80 h-[300px] flex flex-col">
@@ -223,23 +225,30 @@ const DisplayBoard: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-6">
-                    <div
-                      className={`flex-shrink-0 w-36 h-36 sm:w-44 sm:h-44 rounded-xl bg-gradient-to-br from-sky-600 to-sky-500 text-white flex items-center justify-center shadow-inner transition-transform duration-300 ${
-                      st?.isCalling ? 'scale-105 ring-4 ring-sky-300/60' : ''
-                      }`}
-                    >
-                      {current ? (
-                      <div className="text-center">
-                        <div className="text-4xl sm:text-5xl font-extrabold tracking-tight">{current.Q_number}</div>
-                        <div className="text-sm sm:text-base opacity-95">{current.counter ? `${current.counter}` : 'รอเรียก'}</div>
-                      </div>
-                      ) : (
-                      <div className="text-center text-sky-100">
-                        <div className="text-2xl sm:text-3xl font-semibold">-</div>
-                        <div className="text-sm sm:text-base">ไม่มีคิว</div>
-                      </div>
-                      )}
-                    </div>
+                    {(() => {
+                      const isGradient = typeof color === 'string' && (color.includes('from-') || color.includes('to-'));
+                      const bgClass = isGradient ? `bg-gradient-to-br ${color}` : '';
+                      const bgStyle = !isGradient ? { background: color } as React.CSSProperties : undefined;
+
+                      return (
+                        <div
+                          className={`flex-shrink-0 w-36 h-36 sm:w-44 sm:h-44 rounded-xl text-white flex items-center justify-center shadow-inner transition-transform duration-300 ${st?.isCalling ? 'scale-105 ring-4 ring-sky-300/60' : ''} ${bgClass || 'bg-sky-600'}`}
+                          style={bgStyle}
+                        >
+                          {current ? (
+                            <div className="text-center">
+                              <div className="text-4xl sm:text-5xl font-extrabold tracking-tight">{current.Q_number}</div>
+                              <div className="text-sm sm:text-base opacity-95">{current.counter ? `${current.counter}` : 'รอเรียก'}</div>
+                            </div>
+                          ) : (
+                            <div className="text-center text-sky-100">
+                              <div className="text-2xl sm:text-3xl font-semibold">-</div>
+                              <div className="text-sm sm:text-base">ไม่มีคิว</div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div className="flex-1 min-w-0">
                       <div className="text-sm sm:text-base text-slate-700 mb-1 font-medium">คิวปัจจุบัน</div>
