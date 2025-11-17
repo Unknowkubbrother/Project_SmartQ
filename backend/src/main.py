@@ -12,7 +12,6 @@ def image_to_data_uri(path: str, mime_type: str = "image/png") -> str:
     with open(path, "rb") as image_file:
         encoded = base64.b64encode(image_file.read()).decode("utf-8")
         return f"data:{mime_type};base64,{encoded}"
-    z
 def get_local_ipv4():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -30,7 +29,12 @@ GREEN = "\033[92m"
 CYAN = "\033[96m"
 RESET = "\033[0m"
 
-print(f"🌐 IPV4 เครื่อง Server คือ {CYAN}{ip}{RESET}")
+try:
+    # Print with emoji and colors where supported; fall back to plain ASCII on Windows
+    print(f"🌐 IPV4 เครื่อง Server คือ {CYAN}{ip}{RESET}")
+except UnicodeEncodeError:
+    # Some Windows consoles (cp874 / legacy codepages) cannot encode emoji — print a safe ASCII fallback
+    print(f"IPV4 เครื่อง Server คือ {ip}")
 
 ASSETS_DIR = resource_path("assets")
 if os.path.exists(ASSETS_DIR):

@@ -13,9 +13,10 @@ import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 from tkinter.scrolledtext import ScrolledText
 import re
+from src.config import config as cfg
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(HERE, 'config', 'config.json')
+CONFIG_PATH = getattr(cfg, 'config_path', os.path.join(HERE, 'config', 'config.json'))
 
 class BackendGUI:
     def __init__(self, root):
@@ -225,27 +226,44 @@ class BackendGUI:
         if path:
             global CONFIG_PATH
             CONFIG_PATH = path
+            # update module loader's metadata if present
+            try:
+                with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+                    cfg._config = json.load(f)
+                cfg.config_path = CONFIG_PATH
+            except Exception:
+                # ignore; _load_config will show error if cannot read
+                pass
             self._load_config()
             self.root.title(f'SmartQ Server Control - {os.path.basename(CONFIG_PATH)}')
             self._write_to_terminal(f'Using config: {CONFIG_PATH}\n')
 
     def _load_config(self):
+        # Prefer the src.config.config module's loaded config; fall back to reading CONFIG_PATH
         try:
-            with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-                cfg = json.load(f)
+            # if module has _config, use it; else read file
+            conf_data = None
+            if hasattr(cfg, '_config') and isinstance(getattr(cfg, '_config'), dict):
+                conf_data = cfg._config
+            else:
+                with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+                    conf_data = json.load(f)
+                    cfg._config = conf_data
+                    cfg.config_path = CONFIG_PATH
         except Exception as e:
             messagebox.showerror('Error', f'Failed to load config: {e}')
             return
-        self.config = cfg
+
+        self.config = conf_data
         self.root.title(f'SmartQ Server Control - {os.path.basename(CONFIG_PATH)}')
         
         self.hospital_entry.delete(0, tk.END)
-        self.hospital_entry.insert(0, cfg.get('HOSPITAL_NAME', ''))
+        self.hospital_entry.insert(0, self.config.get('HOSPITAL_NAME', ''))
         
         self.logo_entry.delete(0, tk.END)
-        self.logo_entry.insert(0, cfg.get('LOGO_FILE', ''))
+        self.logo_entry.insert(0, self.config.get('LOGO_FILE', ''))
         
-        db = cfg.get('DB', {})
+        db = self.config.get('DB', {})
         self.dbhost_entry.delete(0, tk.END); self.dbhost_entry.insert(0, db.get('HOST', ''))
         self.dbport_entry.delete(0, tk.END); self.dbport_entry.insert(0, str(db.get('PORT', '')))
         self.dbuser_entry.delete(0, tk.END); self.dbuser_entry.insert(0, db.get('USERNAME', ''))
@@ -269,8 +287,19 @@ class BackendGUI:
             self.config['DB']['USERNAME'] = self.dbuser_entry.get()
             self.config['DB']['PASSWORD'] = self.dbpass_entry.get()
             self.config['DB']['DATABASE'] = self.dbname_entry.get()
-            with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+
+            # write to the active config path (use module path if available)
+            target_path = getattr(cfg, 'config_path', CONFIG_PATH)
+            with open(target_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=4)
+
+            # update module cache
+            try:
+                cfg._config = self.config
+                cfg.config_path = target_path
+            except Exception:
+                pass
+
             self._write_to_terminal('Config saved.\n')
             self._reload_services_tree()
         except Exception as e:
@@ -393,8 +422,32 @@ class BackendGUI:
             candidate = os.path.join(HERE, '.venv', 'Scripts', 'python.exe')
         if os.path.exists(candidate) and os.access(candidate, os.X_OK):
             venv_py = candidate
+        interpreter = None
 
-        interpreter = venv_py or sys.executable
+        # If running as a frozen executable (pyinstaller), sys.executable is the exe
+        # launching the GUI. Starting that executable will spawn another GUI window.
+        # Prefer a real Python interpreter when available (python, python3, or venv).
+        if venv_py:
+            interpreter = venv_py
+        else:
+            try:
+                frozen = getattr(sys, 'frozen', False)
+            except Exception:
+                frozen = False
+
+            if frozen:
+                # try to find a system python first
+                from shutil import which
+                interp = which('python') or which('python3') or which('py')
+                if interp:
+                    interpreter = interp
+                    self._write_to_terminal(f"Detected frozen GUI; using system python: {interpreter}\n")
+                else:
+                    # no system python found — fall back to sys.executable but warn user
+                    interpreter = sys.executable
+                    self._write_to_terminal('Warning: running from packaged GUI and no system python found; this may spawn another GUI window.\n')
+            else:
+                interpreter = sys.executable
         cmd_module = [interpreter, '-u', '-m', 'src.main']
         cmd_file = [interpreter, '-u', os.path.join('src', 'main.py')]
         self._write_to_terminal(f'Starting Server with interpreter: {interpreter}\n')
@@ -416,13 +469,89 @@ class BackendGUI:
             else:
                 self._write_to_terminal('Port in use and user chose not to start Server.\n')
                 return
+        def _find_backend_executable():
+            # 1) explicit override from config
+            be = self.config.get('BACKEND_EXE')
+            if be:
+                if os.path.isabs(be) and os.path.exists(be):
+                    return be
+                # try relative to HERE
+                candidate = os.path.join(HERE, be)
+                if os.path.exists(candidate):
+                    return candidate
+
+            # 2) if running from a packaged GUI, look next to the GUI exe for a backend bundle
+            if getattr(sys, 'frozen', False):
+                exe_dir = os.path.dirname(sys.executable)
+                # common names from spec: smartq-backend (folder) / smartq-backend.exe
+                candidates = [
+                    os.path.join(exe_dir, 'smartq-backend.exe'),
+                    os.path.join(exe_dir, 'smartq-backend', 'smartq-backend.exe'),
+                    os.path.join(exe_dir, 'smartq_backend.exe'),
+                    os.path.join(exe_dir, 'smartq_backend', 'smartq_backend.exe'),
+                ]
+                for c in candidates:
+                    if os.path.exists(c):
+                        return c
+
+                # also check parent directory (if GUI is inside a nested dist folder)
+                parent = os.path.abspath(os.path.join(exe_dir, '..'))
+                for name in ['smartq-backend.exe', os.path.join('smartq-backend','smartq-backend.exe')]:
+                    c = os.path.join(parent, name)
+                    if os.path.exists(c):
+                        return c
+
+            # 3) development layout: dist created in backend/dist; check sibling dist folder
+            dev_candidate = os.path.join(HERE, 'dist', 'smartq-backend', 'smartq-backend.exe')
+            if os.path.exists(dev_candidate):
+                return dev_candidate
+
+            return None
+
         try:
             self._write_to_terminal(f'Attempting module start: {cmd_module}\n')
             env = os.environ.copy()
             env['SMARTQ_PORT'] = str(port_to_use)
-            env['FORCE_COLOR'] = '1' 
-            self.proc = subprocess.Popen(cmd_module, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
-                                         text=True, encoding='utf-8', errors='replace')
+            env['FORCE_COLOR'] = '1'
+            # Determine an appropriate src path to add to PYTHONPATH so the child python
+            # can import the local `src` package. When running as a frozen/packaged GUI,
+            # the data files may be extracted to sys._MEIPASS (onefile) or placed next to
+            # the exe (onedir). Try several candidate locations.
+            def _find_src_candidate():
+                # 1) If PyInstaller onefile extraction dir exists
+                if getattr(sys, 'frozen', False):
+                    meipass = getattr(sys, '_MEIPASS', None)
+                    if meipass:
+                        cand = os.path.join(meipass, 'src')
+                        if os.path.isdir(cand):
+                            return cand
+                    # 2) Directory next to the executable (common for --onedir)
+                    exe_dir = os.path.dirname(sys.executable)
+                    cand2 = os.path.join(exe_dir, 'src')
+                    if os.path.isdir(cand2):
+                        return cand2
+                # 3) Development layout: src folder relative to this gui.py file
+                cand3 = os.path.join(HERE, 'src')
+                if os.path.isdir(cand3):
+                    return cand3
+                # 4) fallback to HERE
+                return HERE
+
+            src_path = _find_src_candidate()
+            prev_pp = env.get('PYTHONPATH', '')
+            env['PYTHONPATH'] = f"{src_path}{os.pathsep}{prev_pp}" if prev_pp else src_path
+            self._write_to_terminal(f'Using PYTHONPATH={env["PYTHONPATH"]}\n')
+            # Prefer launching a bundled backend executable if available (avoids reliance on system python)
+            backend_exe = _find_backend_executable()
+            if backend_exe:
+                self._write_to_terminal(f'Found backend executable: {backend_exe}\n')
+                # Launch the backend exe directly
+                self.proc = subprocess.Popen([backend_exe, f'--port={port_to_use}'], cwd=os.path.dirname(backend_exe), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
+                                             text=True, encoding='utf-8', errors='replace')
+            else:
+                # Fall back to module start which requires PYTHONPATH set above
+                self.proc = subprocess.Popen(cmd_module, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
+                                             text=True, encoding='utf-8', errors='replace')
             self.thread = threading.Thread(target=self._reader_thread, daemon=True)
             self.thread.start()
         except Exception as e:
@@ -432,6 +561,27 @@ class BackendGUI:
                 env = os.environ.copy()
                 env['SMARTQ_PORT'] = str(port_to_use)
                 env['FORCE_COLOR'] = '1'
+                # file start doesn't need PYTHONPATH since we're running the file directly, but keep env consistent
+                # however, when packaged we still want the child to find the local src package
+                def _find_src_candidate_file():
+                    if getattr(sys, 'frozen', False):
+                        meipass = getattr(sys, '_MEIPASS', None)
+                        if meipass:
+                            cand = os.path.join(meipass, 'src')
+                            if os.path.isdir(cand):
+                                return cand
+                        exe_dir = os.path.dirname(sys.executable)
+                        cand2 = os.path.join(exe_dir, 'src')
+                        if os.path.isdir(cand2):
+                            return cand2
+                    cand3 = os.path.join(HERE, 'src')
+                    if os.path.isdir(cand3):
+                        return cand3
+                    return HERE
+
+                src_path = _find_src_candidate_file()
+                prev_pp = env.get('PYTHONPATH', '')
+                env['PYTHONPATH'] = f"{src_path}{os.pathsep}{prev_pp}" if prev_pp else src_path
                 self.proc = subprocess.Popen(cmd_file, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
                                              text=True, encoding='utf-8', errors='replace')
                 self.thread = threading.Thread(target=self._reader_thread, daemon=True)
