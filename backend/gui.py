@@ -15,7 +15,16 @@ from tkinter.scrolledtext import ScrolledText
 import re
 from src.config import config as cfg
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+# --- START OF EDIT ---
+# ตรวจสอบว่ากำลังรันเป็น .exe (PyInstaller bundle) หรือไม่
+if getattr(sys, 'frozen', False):
+    # ถ้าใช่ HERE คือที่อยู่ของไฟล์ .exe
+    HERE = os.path.dirname(sys.executable)
+else:
+    # ถ้าไม่ใช่ (รันเป็น .py) HERE คือที่อยู่ของไฟล์สคริปต์
+    HERE = os.path.dirname(os.path.abspath(__file__))
+# --- END OF EDIT ---
+
 CONFIG_PATH = getattr(cfg, 'config_path', os.path.join(HERE, 'config', 'config.json'))
 
 class BackendGUI:
@@ -181,16 +190,10 @@ class BackendGUI:
     def _browse_logo(self):
         assets_dir = os.path.join(HERE, 'assets')
         
-        # --- DEBUG LINE ADDED ---
-        # เพิ่มบรรทัดนี้เพื่อตรวจสอบว่า path ของ assets_dir ถูกต้องหรือไม่
-        self._write_to_terminal(f"DEBUG: Attempting to use assets directory: {assets_dir}\n")
-        # --- END DEBUG LINE ---
-
         try:
             os.makedirs(assets_dir, exist_ok=True)
         except OSError as e:
             messagebox.showerror('Error', f'Could not create assets directory: {e}')
-            self._write_to_terminal(f"ERROR: Could not create assets directory: {e}\n") # เพิ่ม log
             return
 
         filetypes = [('Image files', '*.png *.jpg *.jpeg *.gif'), ('All files', '*.*')]
@@ -201,10 +204,6 @@ class BackendGUI:
 
         filename = os.path.basename(source_path)
         dest_path = os.path.join(assets_dir, filename)
-        
-        # --- DEBUG LINE ADDED ---
-        self._write_to_terminal(f"DEBUG: Copying from '{source_path}' to '{dest_path}'\n")
-        # --- END DEBUG LINE ---
 
         try:
             if os.path.normpath(source_path) == os.path.normpath(dest_path):
@@ -659,7 +658,7 @@ class BackendGUI:
                 self.queue.put(line)
         except Exception as e:
             if 'read from closed file' not in str(e).lower():
-                 self.queue.put(f'Reader thread error: {e}\n')
+               self.queue.put(f'Reader thread error: {e}\n')
         finally:
             self.queue.put('\n[process exited]\n')
 
