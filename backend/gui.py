@@ -181,10 +181,16 @@ class BackendGUI:
     def _browse_logo(self):
         assets_dir = os.path.join(HERE, 'assets')
         
+        # --- DEBUG LINE ADDED ---
+        # เพิ่มบรรทัดนี้เพื่อตรวจสอบว่า path ของ assets_dir ถูกต้องหรือไม่
+        self._write_to_terminal(f"DEBUG: Attempting to use assets directory: {assets_dir}\n")
+        # --- END DEBUG LINE ---
+
         try:
             os.makedirs(assets_dir, exist_ok=True)
         except OSError as e:
             messagebox.showerror('Error', f'Could not create assets directory: {e}')
+            self._write_to_terminal(f"ERROR: Could not create assets directory: {e}\n") # เพิ่ม log
             return
 
         filetypes = [('Image files', '*.png *.jpg *.jpeg *.gif'), ('All files', '*.*')]
@@ -195,6 +201,10 @@ class BackendGUI:
 
         filename = os.path.basename(source_path)
         dest_path = os.path.join(assets_dir, filename)
+        
+        # --- DEBUG LINE ADDED ---
+        self._write_to_terminal(f"DEBUG: Copying from '{source_path}' to '{dest_path}'\n")
+        # --- END DEBUG LINE ---
 
         try:
             if os.path.normpath(source_path) == os.path.normpath(dest_path):
@@ -546,7 +556,7 @@ class BackendGUI:
             if backend_exe:
                 self._write_to_terminal(f'Found backend executable: {backend_exe}\n')
                 # Launch the backend exe directly
-                self.proc = subprocess.Popen([backend_exe, f'--port={port_to_use}'], cwd=os.path.dirname(backend_exe), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
+                self.proc = subprocess.Popen([backend_exe], cwd=os.path.dirname(backend_exe), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
                                              text=True, encoding='utf-8', errors='replace')
             else:
                 # Fall back to module start which requires PYTHONPATH set above

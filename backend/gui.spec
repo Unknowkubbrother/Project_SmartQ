@@ -1,18 +1,26 @@
 # -*- mode: python ; coding: utf-8 -*-
+"""
+PyInstaller spec for the GUI (onedir).
+
+This spec bundles `gui.py` into a windowed application and includes the
+`assets/` and `config/` directories as data files so the GUI can load logos
+and the configuration file at runtime. It's intentionally an onedir build
+so resources remain as files next to the exe.
+
+Run from the `backend/` folder:
+
+  pyinstaller gui.spec
+
+"""
+
+from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules
 block_cipher = None
 
-# collect all submodules under the 'src' package and keep explicit non-package imports
-hidden_imports = collect_submodules('src') + ['pymysql']
-
-from pathlib import Path
-import os
+project_root = Path('.').resolve()
 
 def _collect_tree(prefix_folder: str, target_prefix: str):
     files = []
-    # When PyInstaller executes the spec, __file__ may not be defined in that context.
-    # Use the current working directory (the location where the spec is run) as the project root.
-    project_root = Path('.').resolve()
     base = project_root / prefix_folder
     if base.exists() and base.is_dir():
         for p in base.rglob('*'):
@@ -21,26 +29,31 @@ def _collect_tree(prefix_folder: str, target_prefix: str):
                 files.append((str(p), str((Path(target_prefix) / rel).as_posix())))
     return files
 
-# include src and assets/config as data so bundled exe has the backend sources and resources
+# collect datas: assets/ and config/ (do not bundle backend src into GUI by default)
 datas = []
 datas += _collect_tree('assets', 'assets')
 datas += _collect_tree('config', 'config')
-datas += _collect_tree('src', 'src')
+
+# Hidden imports useful for the GUI (ttkbootstrap and its backends)
+try:
+    hidden_imports = collect_submodules('ttkbootstrap')
+except Exception:
+    hidden_imports = []
 
 a = Analysis(
     ['gui.py'],
-    pathex=[r'E:\Dirve D\Coding\Project_SmartQ\backend'],
+    pathex=[str(project_root)],
     binaries=[],
     datas=datas,
     hiddenimports=hidden_imports,
     hookspath=[],
-    hooksconfig={},
     runtime_hooks=[],
     excludes=[],
-    noarchive=False,
-    optimize=0,
-    cipher=block_cipher
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
 )
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
@@ -53,20 +66,17 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    windowed=False,
+    windowed=True
 )
+
 coll = COLLECT(
     exe,
     a.binaries,
+    a.zipfiles,
     a.datas,
     strip=False,
     upx=True,
-    upx_exclude=[],
     name='gui_app',
 )
