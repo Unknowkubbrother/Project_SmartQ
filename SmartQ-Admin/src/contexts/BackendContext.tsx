@@ -1,18 +1,27 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 
+interface initalInterface {
+  HOSPITAL_NAME: string;
+  VIDEO_URL: string;
+  LOGO: string;
+}
+
 type BackendContextType = {
   backendUrl: string | null;
   setBackendUrl: (url: string | null) => void;
   operatorId: string;
   operatorName?: string | null;
   setOperatorName?: (name: string | null) => void;
+  initalData: initalInterface | null;
+  setInitalData: (data: initalInterface | null) => void;
 };
 
 const BackendContext = React.createContext<BackendContextType | undefined>(undefined);
 
 export const BackendProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [backendUrl, setBackendUrl] = React.useState<string | null>(null);
+  const [initalData, setInitalData] = React.useState<initalInterface | null>(null);
   const [operatorId, setOperatorId] = React.useState<string>(() => {
     try {
       const existing = sessionStorage.getItem('operatorId');
@@ -32,7 +41,7 @@ export const BackendProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   });
   return (
-    <BackendContext.Provider value={{ backendUrl, setBackendUrl, operatorId, operatorName, setOperatorName }}>
+    <BackendContext.Provider value={{ backendUrl, setBackendUrl, operatorId, operatorName, setOperatorName, setInitalData, initalData }}>
       {children}
     </BackendContext.Provider>
   );

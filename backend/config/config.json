@@ -2,6 +2,7 @@
     "DEBUG": true,
     "HOSPITAL_NAME": "โรงพยาบาลส่งเสริมสุขภาพตำบลคลองบุหรี่",
     "LOGO_FILE": "logo.png",
+    "VIDEO_URL": "https://www.youtube.com/watch?v=eA0lHNZ1KCA",
     "DB": {
         "HOST": "192.168.0.158",
         "PORT": 3333,

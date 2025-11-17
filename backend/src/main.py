@@ -68,6 +68,7 @@ def initial():
         LogoBase64 = image_to_data_uri(logo_path)
         return {
             "HOSPITAL_NAME": get('HOSPITAL_NAME'),
+            "VIDEO_URL": get('VIDEO_URL'),
             "LOGO": LogoBase64
         }
     except Exception as e:

@@ -59,11 +59,15 @@ class BackendGUI:
         self.hospital_entry = tb.Entry(cfg_frame, width=60)
         self.hospital_entry.grid(row=0, column=1, columnspan=3, sticky='ew', pady=5, padx=5)
 
-        tb.Label(cfg_frame, text='Logo File:').grid(row=1, column=0, sticky=W, padx=5, pady=5)
+        tb.Label(cfg_frame, text='Video URL:').grid(row=1, column=0, sticky=W, padx=5, pady=5)
+        self.video_url_entry = tb.Entry(cfg_frame, width=60)
+        self.video_url_entry.grid(row=1, column=1, columnspan=3, sticky='ew', pady=5, padx=5)
+
+        tb.Label(cfg_frame, text='Logo File:').grid(row=2, column=0, sticky=W, padx=5, pady=5)
         self.logo_entry = tb.Entry(cfg_frame, width=60)
-        self.logo_entry.grid(row=1, column=1, columnspan=2, sticky='ew', pady=5, padx=5)
+        self.logo_entry.grid(row=2, column=1, columnspan=2, sticky='ew', pady=5, padx=5)
         self.logo_browse_btn = tb.Button(cfg_frame, text='Upload Logo...', command=self._browse_logo, bootstyle=SECONDARY)
-        self.logo_browse_btn.grid(row=1, column=3, sticky=W, padx=5, pady=5)
+        self.logo_browse_btn.grid(row=2, column=3, sticky=W, padx=5, pady=5)
 
         db_group = tb.Labelframe(cfg_frame, text='Database Configuration', padding=15)
         db_group.grid(row=3, column=0, columnspan=4, sticky='ew', pady=10, padx=5)
@@ -268,6 +272,9 @@ class BackendGUI:
         
         self.hospital_entry.delete(0, tk.END)
         self.hospital_entry.insert(0, self.config.get('HOSPITAL_NAME', ''))
+
+        self.video_url_entry.delete(0, tk.END)
+        self.video_url_entry.insert(0, self.config.get('VIDEO_URL', ''))
         
         self.logo_entry.delete(0, tk.END)
         self.logo_entry.insert(0, self.config.get('LOGO_FILE', ''))
@@ -284,6 +291,8 @@ class BackendGUI:
     def _save_config(self):
         try:
             self.config['HOSPITAL_NAME'] = self.hospital_entry.get()
+
+            self.config['VIDEO_URL'] = self.video_url_entry.get()
             
             self.config['LOGO_FILE'] = self.logo_entry.get()
 

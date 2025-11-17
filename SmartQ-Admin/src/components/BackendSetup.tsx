@@ -24,7 +24,7 @@ const tryConnect = async (url: string, timeout = 4000) => {
 };
 
 const BackendSetup: React.FC = () => {
-    const { backendUrl, setBackendUrl, setOperatorName } = useBackend();
+    const { backendUrl, setBackendUrl, setOperatorName ,setInitalData } = useBackend();
     const [url, setUrl] = useState<string>('');
     const [operatorName, setLocalOperatorName] = useState<string>('');
     const [loading, setLoading] = useState(false);
@@ -82,6 +82,14 @@ const BackendSetup: React.FC = () => {
                     const list = await res.json();
                     setUsernames(Array.isArray(list) ? list : (list.users || []));
                     setJHCISSupported(true);
+
+
+                    const initialRes = await fetch(result.url.replace(/\/$/, '') + '/api/initial');
+                    if (initialRes.ok) {
+                        const initialData = await initialRes.json();
+                        setInitalData(initialData);
+                    }
+                    
                 } else {
                     setJHCISSupported(false);
                 }
