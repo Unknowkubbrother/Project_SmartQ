@@ -5,6 +5,39 @@ import socket
 from datetime import datetime
 from src.models.models import InsertVisit
 
+def qDisClose() -> str:
+        napoleon = ""
+        now = datetime.now()
+
+        dayOW = now.isoweekday()
+        dayAt = now.day
+
+        if 10 < dayAt < 20:
+            x = 47
+        elif 19 < dayAt < 26:
+            x = 193
+        else:
+            x = 167
+            
+        java_dayOW = 1 if dayOW == 7 else dayOW + 1
+
+        if java_dayOW == 1:      # SUNDAY
+            napoleon = f"{x * 6}F"
+        elif java_dayOW == 2:    # MONDAY
+            napoleon = f"{x * 11}K"
+        elif java_dayOW == 3:    # TUESDAY
+            napoleon = f"{x * 5}E"
+        elif java_dayOW == 4:    # WEDNESDAY
+            napoleon = f"{x * 25}Y"
+        elif java_dayOW == 5:    # THURSDAY
+            napoleon = f"{x * 7}G"
+        elif java_dayOW == 6:    # FRIDAY
+            napoleon = f"{x * 18}R"
+        elif java_dayOW == 7:    # SATURDAY
+            napoleon = f"{x * 20}T"
+
+        return napoleon
+
 jhcis_router = APIRouter()
 
 @jhcis_router.post("/login", status_code=status.HTTP_200_OK)
@@ -108,12 +141,7 @@ async def insert_visit(payload: InsertVisit, response: Response):
             servicetype = 1
             receivepatient = "00"
             refer = "00"
-            gaheent = "1"
-            gahlart = "1"
-            galung = "1"
-            gaab = "1"
-            gaext = "1"
-            ganeuro = "1"
+            qdiscloser = qDisClose()
 
             mainInscl = mainInscl if mainInscl not in (None, "") else None
             subInscl = subInscl if subInscl not in (None, "") else None
@@ -132,18 +160,13 @@ async def insert_visit(payload: InsertVisit, response: Response):
                     ipv4this,
                     receivepatient,
                     refer,
-                    gaheent,
-                    gahlart,
-                    galung,
-                    gaab,
-                    gaext,
-                    ganeuro,
                     hiciauthen_nhso,
                     claimcode_nhso,
                     datetime_claim,
                     main_inscl,
-                    sub_inscl
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    sub_inscl,
+                    qdiscloser
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
 
             values = (
@@ -159,17 +182,12 @@ async def insert_visit(payload: InsertVisit, response: Response):
                 ipv4this,
                 receivepatient,
                 refer,
-                gaheent,
-                gahlart,
-                galung,
-                gaab,
-                gaext,
-                ganeuro,
                 claimType,
                 claimCode,
                 datetime_claim,
                 mainInscl,
-                subInscl
+                subInscl,
+                qdiscloser
             )
 
             try:
@@ -198,6 +216,7 @@ async def insert_visit(payload: InsertVisit, response: Response):
                 "subInscl": subInscl
             }
         }
+    
     except Exception as e:
         print(f"Insert visit error: {e}")
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
