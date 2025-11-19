@@ -3,6 +3,7 @@
     "HOSPITAL_NAME": "โรงพยาบาลส่งเสริมสุขภาพตำบลคลองบุหรี่",
     "LOGO_FILE": "logo.png",
     "VIDEO_URL": "https://www.youtube.com/watch?v=pjhjEUbg7vY",
+    "IMAGE_URL": "6b7b5f8aafac5edffd93fdc60ed0f772.png",
     "DB": {
         "HOST": "192.168.0.41",
         "PORT": 3333,

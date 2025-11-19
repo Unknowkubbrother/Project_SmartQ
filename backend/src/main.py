@@ -66,9 +66,34 @@ def initial():
     try:
         logo_path = os.path.join(ASSETS_DIR, get('LOGO_FILE'))
         LogoBase64 = image_to_data_uri(logo_path)
+        video = get('VIDEO_URL')
+
+        image_conf = get('IMAGE_URL')
+        image_val = None
+        if image_conf:
+            image_conf = str(image_conf)
+            if image_conf.startswith('http://') or image_conf.startswith('https://'):
+                image_val = image_conf
+            else:
+                img_path = os.path.join(ASSETS_DIR, image_conf)
+                if os.path.exists(img_path):
+                    ext = os.path.splitext(img_path)[1].lower()
+                    mime = 'image/png'
+                    if ext in ('.jpg', '.jpeg'):
+                        mime = 'image/jpeg'
+                    elif ext == '.webp':
+                        mime = 'image/webp'
+                    elif ext == '.gif':
+                        mime = 'image/gif'
+                    try:
+                        image_val = image_to_data_uri(img_path, mime)
+                    except Exception:
+                        image_val = None
+
         return {
             "HOSPITAL_NAME": get('HOSPITAL_NAME'),
-            "VIDEO_URL": get('VIDEO_URL'),
+            "VIDEO_URL": video,
+            "IMAGE_URL": image_val,
             "LOGO": LogoBase64
         }
     except Exception as e:

@@ -78,8 +78,14 @@ class BackendGUI:
         self.logo_browse_btn = tb.Button(cfg_frame, text='Upload Logo...', command=self._browse_logo, bootstyle=SECONDARY)
         self.logo_browse_btn.grid(row=2, column=3, sticky=W, padx=5, pady=5)
 
+        tb.Label(cfg_frame, text='Image URL:').grid(row=3, column=0, sticky=W, padx=5, pady=5)
+        self.image_url_entry = tb.Entry(cfg_frame, width=60)
+        self.image_url_entry.grid(row=3, column=1, columnspan=2, sticky='ew', pady=5, padx=5)
+        self.image_browse_btn = tb.Button(cfg_frame, text='Upload Image...', command=self._browse_image, bootstyle=SECONDARY)
+        self.image_browse_btn.grid(row=3, column=3, sticky=W, padx=5, pady=5)
+
         db_group = tb.Labelframe(cfg_frame, text='Database Configuration', padding=15)
-        db_group.grid(row=3, column=0, columnspan=4, sticky='ew', pady=10, padx=5)
+        db_group.grid(row=4, column=0, columnspan=4, sticky='ew', pady=10, padx=5)
         db_group.columnconfigure(1, weight=1)
         db_group.columnconfigure(3, weight=1)
 
@@ -104,7 +110,7 @@ class BackendGUI:
         self.dbname_entry.grid(row=2, column=1, sticky='ew', padx=5, pady=5)
 
         btn_frame = tb.Frame(cfg_frame)
-        btn_frame.grid(row=4, column=0, columnspan=4, pady=15)
+        btn_frame.grid(row=5, column=0, columnspan=4, pady=15)
         
         tb.Button(btn_frame, text='Save Config', command=self._save_config, bootstyle=PRIMARY).pack(side=LEFT, padx=5)
         tb.Button(btn_frame, text='Reload Config', command=self._load_config, bootstyle=INFO).pack(side=LEFT, padx=5)
@@ -243,6 +249,64 @@ class BackendGUI:
             messagebox.showerror('Upload Error', f'Failed to copy file to assets: {e}')
             self._write_to_terminal(f"ERROR: Failed to copy logo: {e}\n")
 
+    def _browse_image(self):
+        assets_dir = os.path.join(HERE, 'assets')
+        try:
+            os.makedirs(assets_dir, exist_ok=True)
+        except OSError as e:
+            messagebox.showerror('Error', f'Could not create assets directory: {e}')
+            return
+
+        filetypes = [
+            ('PNG files', '*.png'),
+            ('JPEG files', '*.jpg;*.jpeg'),
+            ('GIF files', '*.gif'),
+            ('All files', '*.*'),
+        ]
+        source_path = filedialog.askopenfilename(title='Select Image to Upload', initialdir=os.path.expanduser('~'), filetypes=filetypes)
+        if not source_path:
+            return
+        filename = os.path.basename(source_path)
+        dest_path = os.path.join(assets_dir, filename)
+
+        try:
+            if os.path.normpath(source_path) == os.path.normpath(dest_path):
+                self._write_to_terminal(f"Image '{filename}' is already in assets folder.\n")
+            else:
+                shutil.copy2(source_path, dest_path)
+                self._write_to_terminal(f"Copied '{filename}' to assets folder.\n")
+
+            # set IMAGE_URL to the local filename so server can treat it as asset
+            self.image_url_entry.delete(0, tk.END)
+            self.image_url_entry.insert(0, filename)
+            # no preview shown in GUI per user preference
+        except Exception as e:
+            messagebox.showerror('Upload Error', f'Failed to copy image to assets: {e}')
+            self._write_to_terminal(f"ERROR: Failed to copy image: {e}\n")
+
+    def _update_image_preview(self):
+        # Only local PNG files (in assets/) are previewed without Pillow
+        val = self.image_url_entry.get().strip()
+        self.image_preview_label.config(image='', text='Preview: (local PNG only)')
+        try:
+            if not val:
+                return
+            assets_dir = os.path.join(HERE, 'assets')
+            candidate = os.path.join(assets_dir, val)
+            if os.path.exists(candidate) and candidate.lower().endswith('.png'):
+                try:
+                    photo = tk.PhotoImage(file=candidate)
+                    self._image_preview_photo = photo
+                    self.image_preview_label.config(image=photo, text='')
+                except Exception:
+                    self.image_preview_label.config(text='Preview unavailable (could not load)')
+            else:
+                # remote URL or unsupported format
+                self.image_preview_label.config(text='Preview unavailable (remote or unsupported format)')
+        except Exception:
+            pass
+
+
     def _open_config_file(self):
         try:
             if sys.platform == 'darwin':
@@ -295,6 +359,9 @@ class BackendGUI:
         self.logo_entry.delete(0, tk.END)
         self.logo_entry.insert(0, self.config.get('LOGO_FILE', ''))
         
+        self.image_url_entry.delete(0, tk.END)
+        self.image_url_entry.insert(0, self.config.get('IMAGE_URL', ''))
+        
         db = self.config.get('DB', {})
         self.dbhost_entry.delete(0, tk.END); self.dbhost_entry.insert(0, db.get('HOST', ''))
         self.dbport_entry.delete(0, tk.END); self.dbport_entry.insert(0, str(db.get('PORT', '')))
@@ -309,6 +376,7 @@ class BackendGUI:
             self.config['HOSPITAL_NAME'] = self.hospital_entry.get()
 
             self.config['VIDEO_URL'] = self.video_url_entry.get()
+            self.config['IMAGE_URL'] = self.image_url_entry.get()
             
             self.config['LOGO_FILE'] = self.logo_entry.get()
 

@@ -10,6 +10,7 @@ import {
   VolumeX,
   User,
   MonitorPlay,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import ReactPlayer from "react-player";
@@ -283,6 +284,26 @@ const DisplayBoard: React.FC = () => {
   // --- 3. JSX Rendering (Optimized for 65/35 Split and Ultra-Compact Cards) ---
 
   const videoEnabled = !!initalData?.VIDEO_URL;
+  const imageEnabled = !!(initalData as any)?.IMAGE_URL;
+
+  const [mediaMode, setMediaMode] = useState<"video" | "image">(() => {
+    try {
+      const v = localStorage.getItem("display_media_mode");
+      if (v === "video" || v === "image") return v;
+    } catch (e) {}
+    return videoEnabled ? "video" : imageEnabled ? "image" : "video";
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("display_media_mode", mediaMode);
+    } catch (e) {}
+  }, [mediaMode]);
+
+  useEffect(() => {
+    if (mediaMode === "video" && !videoEnabled && imageEnabled) setMediaMode("image");
+    if (mediaMode === "image" && !imageEnabled && videoEnabled) setMediaMode("video");
+  }, [videoEnabled, imageEnabled]);
   
   
   
@@ -344,24 +365,88 @@ const DisplayBoard: React.FC = () => {
         )}
       >
         
-        {videoEnabled && (
+        {(videoEnabled || imageEnabled) && (
           <div className="md:w-[65%] flex flex-col items-stretch">
-             <div className="flex items-center text-slate-700 mb-2 border-b pb-1 border-slate-200">
-                <MonitorPlay className="w-5 h-5 mr-2 text-sky-600"/>
+            <div className="flex items-center justify-between text-slate-700 mb-2 border-b pb-1 border-slate-200">
+              <div className="flex items-center">
+                <MonitorPlay className="w-5 h-5 mr-2 text-sky-600" />
                 <h2 className="text-lg font-bold lg:text-xl">Video/Advertisements</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                {videoEnabled && (
+                  <button
+                    onClick={() => setMediaMode("video")}
+                    className={cn(
+                      "inline-flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition",
+                      mediaMode === "video"
+                        ? "bg-sky-600 text-white"
+                        : "bg-white border border-slate-200 text-slate-700"
+                    )}
+                  >
+                    <MonitorPlay className="w-4 h-4" />
+                    <span>Video</span>
+                  </button>
+                )}
+                {imageEnabled && (
+                  <button
+                    onClick={() => setMediaMode("image")}
+                    className={cn(
+                      "inline-flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium shadow-sm transition",
+                      mediaMode === "image"
+                        ? "bg-sky-600 text-white"
+                        : "bg-white border border-slate-200 text-slate-700"
+                    )}
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    <span>Image</span>
+                  </button>
+                )}
+              </div>
             </div>
-            
+
             <div className="w-full aspect-video rounded-xl overflow-hidden shadow-2xl flex-1 bg-gray-200 border-4 border-slate-300">
-              <ReactPlayer
-                src={initalData.VIDEO_URL}
-                width="100%"
-                height="100%"
-                controls={false} 
-                playing
-                volume={0}
-                muted={true}
-                loop
-              />
+              {mediaMode === "video" && videoEnabled ? (
+                <ReactPlayer
+                  src={initalData.VIDEO_URL}
+                  width="100%"
+                  height="100%"
+                  controls={false}
+                  playing
+                  volume={0}
+                  muted={true}
+                  loop
+                />
+                ) : mediaMode === "image" && imageEnabled ? (
+                <img
+                  src={(initalData as any)?.IMAGE_URL}
+                  alt="Display"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                // fallback: show whichever is available
+                videoEnabled ? (
+                  <ReactPlayer
+                    src={initalData.VIDEO_URL}
+                    width="100%"
+                    height="100%"
+                    controls={false}
+                    playing
+                    volume={0}
+                    muted={true}
+                    loop
+                  />
+                ) : imageEnabled ? (
+                  <img
+                    src={(initalData as any)?.IMAGE_URL}
+                    alt="Display"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-400">
+                    ไม่มีสื่อแสดงผล
+                  </div>
+                )
+              )}
             </div>
           </div>
         )}
