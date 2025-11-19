@@ -276,16 +276,16 @@ class BackendGUI:
                 shutil.copy2(source_path, dest_path)
                 self._write_to_terminal(f"Copied '{filename}' to assets folder.\n")
 
-            # set IMAGE_URL to the local filename so server can treat it as asset
+            
             self.image_url_entry.delete(0, tk.END)
             self.image_url_entry.insert(0, filename)
-            # no preview shown in GUI per user preference
+
         except Exception as e:
             messagebox.showerror('Upload Error', f'Failed to copy image to assets: {e}')
             self._write_to_terminal(f"ERROR: Failed to copy image: {e}\n")
 
     def _update_image_preview(self):
-        # Only local PNG files (in assets/) are previewed without Pillow
+        
         val = self.image_url_entry.get().strip()
         self.image_preview_label.config(image='', text='Preview: (local PNG only)')
         try:
