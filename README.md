@@ -14,6 +14,11 @@ For Android development, run:
 
 For iOS development, run:
   bun run tauri ios dev
+  xcrun xctrace list devices
+  xcrun simctl shutdown all
+  xcrun simctl erase all
+  bun run tauri ios dev "9010DA6C-D867-429C-B84F-78657B168C83"
+  xcrun simctl list devices available
 
 build
 To build the project for production, run:
