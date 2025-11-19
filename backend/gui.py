@@ -14,16 +14,23 @@ from ttkbootstrap.constants import *
 from tkinter.scrolledtext import ScrolledText
 import re
 from src.config import config as cfg
+import socket
 
-# --- START OF EDIT ---
-# ตรวจสอบว่ากำลังรันเป็น .exe (PyInstaller bundle) หรือไม่
+def get_local_ipv4():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "127.0.0.1"
+    finally:
+        s.close()
+    return ip
+
 if getattr(sys, 'frozen', False):
-    # ถ้าใช่ HERE คือที่อยู่ของไฟล์ .exe
     HERE = os.path.dirname(sys.executable)
 else:
-    # ถ้าไม่ใช่ (รันเป็น .py) HERE คือที่อยู่ของไฟล์สคริปต์
     HERE = os.path.dirname(os.path.abspath(__file__))
-# --- END OF EDIT ---
 
 CONFIG_PATH = getattr(cfg, 'config_path', os.path.join(HERE, 'config', 'config.json'))
 
@@ -40,6 +47,8 @@ class BackendGUI:
 
         self.ansi_escape_regex = re.compile(r'\x1b\[([\d;]*)m')
         self.current_tags = [] 
+        
+        self.server_ipv4 = get_local_ipv4()
 
         self._build_ui()
         self._load_config()
@@ -157,6 +166,16 @@ class BackendGUI:
 
         ctrl_term_frame = tb.Frame(notebook, padding=15)
         notebook.add(ctrl_term_frame, text='Control & Log')
+        
+        ip_group = tb.Frame(ctrl_term_frame)
+        ip_group.pack(side=TOP, fill=X, pady=(0, 15))
+        
+        tb.Label(ip_group, text='Server IPv4 Address:', bootstyle=SECONDARY).pack(side=LEFT, padx=8)
+        
+        self.ip_display_entry = tb.Entry(ip_group, width=20, bootstyle=PRIMARY)
+        self.ip_display_entry.insert(0, self.server_ipv4)
+        self.ip_display_entry.config(state='readonly')
+        self.ip_display_entry.pack(side=LEFT, padx=8, ipady=4)
 
         ctrl_group = tb.Frame(ctrl_term_frame)
         ctrl_group.pack(side=TOP, fill=X, pady=(0, 15))
@@ -200,8 +219,9 @@ class BackendGUI:
             messagebox.showerror('Error', f'Could not create assets directory: {e}')
             return
 
-        filetypes = [('Image files', '*.png *.jpg *.jpeg *.gif'), ('All files', '*.*')]
-        source_path = filedialog.askopenfilename(title='Select Logo File to Upload', initialdir=os.path.expanduser('~'), filetypes=filetypes)
+        # แก้ไข filetypes ให้รองรับเฉพาะ PNG
+        filetypes = [('PNG files', '*.png'), ('All files', '*.*')]
+        source_path = filedialog.askopenfilename(title='Select Logo File to Upload (PNG only)', initialdir=os.path.expanduser('~'), filetypes=filetypes)
         
         if not source_path:
             return
@@ -239,22 +259,18 @@ class BackendGUI:
         if path:
             global CONFIG_PATH
             CONFIG_PATH = path
-            # update module loader's metadata if present
             try:
                 with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
                     cfg._config = json.load(f)
                 cfg.config_path = CONFIG_PATH
             except Exception:
-                # ignore; _load_config will show error if cannot read
                 pass
             self._load_config()
             self.root.title(f'SmartQ Server Control - {os.path.basename(CONFIG_PATH)}')
             self._write_to_terminal(f'Using config: {CONFIG_PATH}\n')
 
     def _load_config(self):
-        # Prefer the src.config.config module's loaded config; fall back to reading CONFIG_PATH
         try:
-            # if module has _config, use it; else read file
             conf_data = None
             if hasattr(cfg, '_config') and isinstance(getattr(cfg, '_config'), dict):
                 conf_data = cfg._config
@@ -306,12 +322,10 @@ class BackendGUI:
             self.config['DB']['PASSWORD'] = self.dbpass_entry.get()
             self.config['DB']['DATABASE'] = self.dbname_entry.get()
 
-            # write to the active config path (use module path if available)
             target_path = getattr(cfg, 'config_path', CONFIG_PATH)
             with open(target_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=4)
 
-            # update module cache
             try:
                 cfg._config = self.config
                 cfg.config_path = target_path
@@ -442,9 +456,6 @@ class BackendGUI:
             venv_py = candidate
         interpreter = None
 
-        # If running as a frozen executable (pyinstaller), sys.executable is the exe
-        # launching the GUI. Starting that executable will spawn another GUI window.
-        # Prefer a real Python interpreter when available (python, python3, or venv).
         if venv_py:
             interpreter = venv_py
         else:
@@ -454,14 +465,12 @@ class BackendGUI:
                 frozen = False
 
             if frozen:
-                # try to find a system python first
                 from shutil import which
                 interp = which('python') or which('python3') or which('py')
                 if interp:
                     interpreter = interp
                     self._write_to_terminal(f"Detected frozen GUI; using system python: {interpreter}\n")
                 else:
-                    # no system python found — fall back to sys.executable but warn user
                     interpreter = sys.executable
                     self._write_to_terminal('Warning: running from packaged GUI and no system python found; this may spawn another GUI window.\n')
             else:
@@ -488,20 +497,16 @@ class BackendGUI:
                 self._write_to_terminal('Port in use and user chose not to start Server.\n')
                 return
         def _find_backend_executable():
-            # 1) explicit override from config
             be = self.config.get('BACKEND_EXE')
             if be:
                 if os.path.isabs(be) and os.path.exists(be):
                     return be
-                # try relative to HERE
                 candidate = os.path.join(HERE, be)
                 if os.path.exists(candidate):
                     return candidate
 
-            # 2) if running from a packaged GUI, look next to the GUI exe for a backend bundle
             if getattr(sys, 'frozen', False):
                 exe_dir = os.path.dirname(sys.executable)
-                # common names from spec: smartq-backend (folder) / smartq-backend.exe
                 candidates = [
                     os.path.join(exe_dir, 'smartq-backend.exe'),
                     os.path.join(exe_dir, 'smartq-backend', 'smartq-backend.exe'),
@@ -512,14 +517,12 @@ class BackendGUI:
                     if os.path.exists(c):
                         return c
 
-                # also check parent directory (if GUI is inside a nested dist folder)
                 parent = os.path.abspath(os.path.join(exe_dir, '..'))
                 for name in ['smartq-backend.exe', os.path.join('smartq-backend','smartq-backend.exe')]:
                     c = os.path.join(parent, name)
                     if os.path.exists(c):
                         return c
 
-            # 3) development layout: dist created in backend/dist; check sibling dist folder
             dev_candidate = os.path.join(HERE, 'dist', 'smartq-backend', 'smartq-backend.exe')
             if os.path.exists(dev_candidate):
                 return dev_candidate
@@ -531,43 +534,32 @@ class BackendGUI:
             env = os.environ.copy()
             env['SMARTQ_PORT'] = str(port_to_use)
             env['FORCE_COLOR'] = '1'
-            # Determine an appropriate src path to add to PYTHONPATH so the child python
-            # can import the local `src` package. When running as a frozen/packaged GUI,
-            # the data files may be extracted to sys._MEIPASS (onefile) or placed next to
-            # the exe (onedir). Try several candidate locations.
             def _find_src_candidate():
-                # 1) If PyInstaller onefile extraction dir exists
                 if getattr(sys, 'frozen', False):
                     meipass = getattr(sys, '_MEIPASS', None)
                     if meipass:
                         cand = os.path.join(meipass, 'src')
                         if os.path.isdir(cand):
                             return cand
-                    # 2) Directory next to the executable (common for --onedir)
                     exe_dir = os.path.dirname(sys.executable)
                     cand2 = os.path.join(exe_dir, 'src')
                     if os.path.isdir(cand2):
                         return cand2
-                # 3) Development layout: src folder relative to this gui.py file
                 cand3 = os.path.join(HERE, 'src')
                 if os.path.isdir(cand3):
                     return cand3
-                # 4) fallback to HERE
                 return HERE
 
             src_path = _find_src_candidate()
             prev_pp = env.get('PYTHONPATH', '')
             env['PYTHONPATH'] = f"{src_path}{os.pathsep}{prev_pp}" if prev_pp else src_path
             self._write_to_terminal(f'Using PYTHONPATH={env["PYTHONPATH"]}\n')
-            # Prefer launching a bundled backend executable if available (avoids reliance on system python)
             backend_exe = _find_backend_executable()
             if backend_exe:
                 self._write_to_terminal(f'Found backend executable: {backend_exe}\n')
-                # Launch the backend exe directly
                 self.proc = subprocess.Popen([backend_exe], cwd=os.path.dirname(backend_exe), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
                                              text=True, encoding='utf-8', errors='replace')
             else:
-                # Fall back to module start which requires PYTHONPATH set above
                 self.proc = subprocess.Popen(cmd_module, cwd=HERE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
                                              text=True, encoding='utf-8', errors='replace')
             self.thread = threading.Thread(target=self._reader_thread, daemon=True)
@@ -579,8 +571,6 @@ class BackendGUI:
                 env = os.environ.copy()
                 env['SMARTQ_PORT'] = str(port_to_use)
                 env['FORCE_COLOR'] = '1'
-                # file start doesn't need PYTHONPATH since we're running the file directly, but keep env consistent
-                # however, when packaged we still want the child to find the local src package
                 def _find_src_candidate_file():
                     if getattr(sys, 'frozen', False):
                         meipass = getattr(sys, '_MEIPASS', None)
