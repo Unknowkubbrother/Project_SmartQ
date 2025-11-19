@@ -678,7 +678,7 @@ class BackendGUI:
                 if messagebox.askyesno('Exit', msg):
                     self._stop_backend()
                 else:
-                    pass
+                    return
         except Exception:
             pass
         try:
