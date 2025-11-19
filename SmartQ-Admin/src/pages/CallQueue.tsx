@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PhoneCall, RotateCcw, User, Hash, CheckCircle, Volume2, VolumeX } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
+import 'sweetalert2/dist/sweetalert2.min.css';
 import { Link } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
 
@@ -50,8 +52,14 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
   }, [backendUrl, serviceName]);
 
   const handleCallNext = async () => {
-    if (!selectedCounter) return alert('กรุณาเลือกช่องบริการก่อนเรียกคิว');
-    if (currentQueue) return alert('ยังมีคิวกำลังถูกเรียกอยู่ — กรุณากด "เสร็จสิ้น" ก่อนเรียกคิวถัดไป');
+    if (!selectedCounter) {
+      await Swal.fire({ icon: 'warning', title: 'กรุณาเลือกช่องบริการ', text: 'กรุณาเลือกช่องบริการก่อนเรียกคิว' });
+      return;
+    }
+    if (currentQueue) {
+      await Swal.fire({ icon: 'warning', title: 'คิวกำลังถูกเรียกอยู่', text: 'กรุณากด "เสร็จสิ้น" ก่อนเรียกคิวถัดไป' });
+      return;
+    }
 
     if (callNextQueue) await callNextQueue(selectedCounter);
   };
@@ -89,10 +97,19 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
   }, [history]);
 
   const handleTransfer = async () => {
-    if (!transferTarget) return alert('กรุณาเลือกบริการเป้าหมาย');
-    if (!selectedCompletedQnum) return alert('กรุณาเลือกผู้ใช้ที่เสร็จแล้วเพื่อส่งต่อ');
+    if (!transferTarget) {
+      await Swal.fire({ icon: 'warning', title: 'กรุณาเลือกบริการปลายทาง', text: 'กรุณาเลือกบริการเป้าหมายก่อนส่งต่อ' });
+      return;
+    }
+    if (!selectedCompletedQnum) {
+      await Swal.fire({ icon: 'warning', title: 'กรุณาเลือกรายชื่อ', text: 'กรุณาเลือกผู้ใช้ที่เสร็จแล้วเพื่อส่งต่อ' });
+      return;
+    }
     const item = completedCandidates.find(c => c.Q_number === selectedCompletedQnum);
-    if (!item) return alert('ไม่พบรายการที่เลือก');
+    if (!item) {
+      await Swal.fire({ icon: 'error', title: 'ไม่พบรายการ', text: 'ไม่พบรายการที่เลือก' });
+      return;
+    }
 
     try {
       const base = backendUrl ? backendUrl.replace(/\/$/, '') : '';
@@ -113,13 +130,19 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
       setAllowTransferSelection(false);
     } catch (e) {
       console.error('Failed to transfer', e);
-      alert('ส่งต่อไม่สำเร็จ โปรดลองอีกครั้ง');
+      await Swal.fire({ icon: 'error', title: 'ส่งต่อไม่สำเร็จ', text: 'โปรดลองอีกครั้ง' });
     }
   };
 
   const handleSkip = async () => {
-    if (!currentQueue) return alert('ไม่มีคิวที่กำลังเรียกเพื่อข้าม');
-    if (!backendUrl) return alert('ยังไม่ได้ตั้งค่า backend URL');
+    if (!currentQueue) {
+      await Swal.fire({ icon: 'info', title: 'ไม่มีคิวที่กำลังเรียก', text: 'ไม่มีคิวที่กำลังเรียกเพื่อข้าม' });
+      return;
+    }
+    if (!backendUrl) {
+      await Swal.fire({ icon: 'warning', title: 'ยังไม่ได้ตั้งค่า backend', text: 'โปรดตั้งค่า backend URL ก่อนใช้งาน' });
+      return;
+    }
     setIsSkipping(true);
     try {
       const base = backendUrl.replace(/\/$/, '');
@@ -138,10 +161,10 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
       setAllowTransferSelection(false);
       setCompletedCandidates(prev => prev.filter(c => c.Q_number !== currentQueue.queueNumber));
 
-      alert('ข้ามคิวเรียบร้อยแล้ว ผู้ใช้ถูกนำไปต่อท้ายคิว');
+      await Swal.fire({ icon: 'success', title: 'ข้ามคิวเรียบร้อย', text: 'ผู้ใช้ถูกนำไปต่อท้ายคิว' });
     } catch (e) {
       console.error('Skip failed', e);
-      alert('ไม่สามารถข้ามคิวได้ กรุณาลองอีกครั้ง');
+      await Swal.fire({ icon: 'error', title: 'ไม่สามารถข้ามคิวได้', text: 'กรุณาลองอีกครั้ง' });
     }
     setIsSkipping(false);
   };
