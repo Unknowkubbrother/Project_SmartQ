@@ -104,8 +104,6 @@ function App() {
           throw new Error("ไม่สามารถอ่านบัตรประชาชนได้");
         }
 
-        console.log(res.data)
-
         const personalObj = {
           ...res.data as SmartQPayload,
           thaiIDCardData: dataObj as ThaiIDCardData
@@ -166,11 +164,25 @@ function App() {
     };
   }, []);
 
-  const connectBackend = async (url: string) => {
+  const buildBackendUrl = (input: string) => {
+    let final = (input || '').trim();
+    if (!final) return null;
+    if (!/^https?:\/\//i.test(final)) {
+      if (!final.includes(':')) {
+        final = `http://${final}:8000`;
+      } else {
+        final = `http://${final}`;
+      }
+    }
+    return final.replace(/\/$/, '');
+  };
+
+  const connectBackend = async (input: string) => {
     setBackendConnecting(true);
     setBackendError(null);
     try {
-      const base = url.replace(/\/$/, "");
+      const base = buildBackendUrl(input);
+      if (!base) throw new Error('empty backend');
       const res = await axios.get(base);
 
       if (res.status !== 200) {
@@ -263,16 +275,16 @@ function App() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-white rounded-lg p-6 w-[420px]">
             <h2 className="text-lg font-semibold mb-4">ตั้งค่า Server และตรวจสอบเครื่องอ่านบัตร</h2>
-            {!backendConnected ? (
+                {!backendConnected ? (
               <div className="space-y-2">
-                <label className="text-sm">Server URL</label>
-                <input value={backendInput} onChange={(e) => setBackendInput(e.target.value)} className="w-full border px-3 py-2 rounded" placeholder="http://192.168.0.158:8000" />
+                <label className="text-sm">Server IP</label>
+                    <input value={backendInput} onChange={(e) => setBackendInput(e.target.value)} className="w-full border px-3 py-2 rounded" placeholder="192.168.0.158" />
                 <div className="flex items-center gap-2 mt-3">
-                  <Button className="btn btn-primary bg-emerald-500 hover:bg-emerald-600" onClick={() => connectBackend(backendInput)} disabled={backendConnecting}>{backendConnecting ? 'กำลังเชื่อม...' : 'เชื่อมต่อ'}</Button>
+                      <Button className="btn btn-primary bg-emerald-500 hover:bg-emerald-600" onClick={() => connectBackend(backendInput)} disabled={backendConnecting}>{backendConnecting ? 'กำลังเชื่อม...' : 'เชื่อมต่อ'}</Button>
                   <Button className="btn bg-rose-400 hover:bg-rose-500" onClick={() => { setBackendInput(''); setBackendError(null); }}>ล้าง</Button>
                 </div>
                 {backendError && <div className="text-sm text-red-600 mt-2">{backendError}</div>}
-                <div className="text-sm text-muted-foreground mt-2">ต้องระบุ URL ของ server ก่อนใช้งาน (ข้อมูลจะไม่ถูกบันทึก)</div>
+                    <div className="text-sm text-muted-foreground mt-2">ระบุที่อยู่เซิร์ฟเวอร์ เช่น <code>192.168.0.158</code></div>
               </div>
             ) : (
               <div>
