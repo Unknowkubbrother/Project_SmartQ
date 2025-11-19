@@ -51,6 +51,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
 
   const handleCallNext = async () => {
     if (!selectedCounter) return alert('กรุณาเลือกช่องบริการก่อนเรียกคิว');
+    if (currentQueue) return alert('ยังมีคิวกำลังถูกเรียกอยู่ — กรุณากด "เสร็จสิ้น" ก่อนเรียกคิวถัดไป');
 
     if (callNextQueue) await callNextQueue(selectedCounter);
   };
@@ -253,7 +254,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
             onClick={handleCallNext}
             size="lg"
             className="h-20 text-lg font-semibold shadow-md hover:shadow-glow transition-all"
-            disabled={!selectedCounter}
+            disabled={!selectedCounter || !!currentQueue}
           >
             <PhoneCall className="w-6 h-6 mr-2" />
             เรียกคิวถัดไป
