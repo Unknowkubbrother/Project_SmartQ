@@ -172,7 +172,12 @@ async def complete_item(service: str, payload: dict):
 
         fullname = payload.get("FULLNAME_TH", "Unknown")
         completed_by = payload.get("completed_by")
-        manager.history.insert(0, {"Q_number": qnum, "FULLNAME_TH": fullname, "service": service, "transferred": False, "completed_by": completed_by})
+        # allow caller to indicate whether this completed item is transferable to other services
+        allow_transfer = payload.get("allow_transfer")
+        if allow_transfer is None:
+            allow_transfer = True
+
+        manager.history.insert(0, {"Q_number": qnum, "FULLNAME_TH": fullname, "service": service, "transferred": False, "transferable": bool(allow_transfer), "completed_by": completed_by})
         if len(manager.history) > 50:
             manager.history = manager.history[:50]
 
@@ -260,6 +265,10 @@ async def transfer_item(service: str, payload: dict):
 
         if found.get("transferred"):
             return {"error": "item already transferred"}
+
+        # If the item is marked non-transferable, forbid transfer
+        if found.get("transferable") is False:
+            return {"error": "item not transferable"}
 
         fullname = found.get("FULLNAME_TH", "Unknown")
 

@@ -20,6 +20,7 @@ interface ServerHistoryItem {
   service?: string;
   counter?: string;
   transferred?: boolean;
+  transferable?: boolean;
   completed_by?: string;
   completed_by_name?: string;
 }
@@ -32,7 +33,7 @@ interface QueueContextType {
   addQueue: (name: string) => Promise<void>;
   callNextQueue: (selectedCounter: string) => Promise<void>;
   callAgain: () => void;
-  completeQueue: (id: string) => Promise<void>;
+  completeQueue: (id: string, allowTransfer?: boolean) => Promise<void>;
   setMute?: (muted: boolean) => Promise<void>;
 }
 
@@ -215,7 +216,7 @@ export const QueueProvider = ({ children, serviceName = 'inspect' }: { children:
     }).catch(console.error);
   };
 
-  const completeQueue = async (id: string) => {
+  const completeQueue = async (id: string, allowTransfer: boolean = true) => {
     if (!backendUrl) return;
     const q = currentQueue?.id === id ? currentQueue : queues.find(q => q.id === id);
     if (!q) return;
@@ -228,6 +229,7 @@ export const QueueProvider = ({ children, serviceName = 'inspect' }: { children:
           FULLNAME_TH: q.customerName,
           service: serviceName,
           completed_by: operatorId,
+          allow_transfer: allowTransfer,
         }),
       });
     } catch (e) {

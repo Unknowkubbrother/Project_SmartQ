@@ -22,7 +22,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
   const [services, setServices] = useState<Record<string, ServiceInfo> | null>(null);
   const [selectedCounter, setSelectedCounter] = useState<string | null>(null);
   const [transferTarget, setTransferTarget] = useState<string | null>(null);
-  const [completedCandidates, setCompletedCandidates] = useState<Array<{ Q_number: number; FULLNAME_TH: string; service?: string }>>([]);
+  const [completedCandidates, setCompletedCandidates] = useState<Array<{ Q_number: number; FULLNAME_TH: string; service?: string; transferable?: boolean; completed_by?: string; completed_by_name?: string }>>([]);
   const [selectedCompletedQnum, setSelectedCompletedQnum] = useState<number | null>(null);
   const [allowTransferSelection, setAllowTransferSelection] = useState<boolean>(false);
   const [isSkipping, setIsSkipping] = useState<boolean>(false);
@@ -67,7 +67,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
   const handleCompleteAndEnableTransfer = async () => {
     if (!currentQueue) return;
     try {
-      await completeQueue(currentQueue.id);
+      await completeQueue(currentQueue.id, true);
     } catch (e) {
       console.error('completeQueue error', e);
     }
@@ -75,26 +75,55 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
     const justCompleted = { Q_number: currentQueue.queueNumber, FULLNAME_TH: currentQueue.customerName, service: currentQueue.service, completed_by: operatorId, completed_by_name: operatorName };
     const operatorHistory = (history || []).filter((h: any) => h.completed_by === operatorId);
     const mergedRaw = [justCompleted, ...operatorHistory].filter((v: any, i: number, a: any[]) => a.findIndex(x => x.Q_number === v.Q_number) === i);
-    const merged = mergedRaw.filter((x: any) => !x.transferred);
+    const merged = mergedRaw.filter((x: any) => !x.transferred && (x.transferable !== false));
     setCompletedCandidates(merged);
     setSelectedCompletedQnum(merged[0]?.Q_number ?? null);
     setAllowTransferSelection(merged.length > 0);
   };
 
+  const handleFinishQueue = async () => {
+    if (!currentQueue) {
+      await Swal.fire({ icon: 'info', title: 'ไม่มีคิวที่กำลังเรียก', text: 'ไม่มีคิวที่กำลังเรียกเพื่อจบ' });
+      return;
+    }
+
+    try {
+      await completeQueue(currentQueue.id, false);
+
+      setAllowTransferSelection(false);
+      setCompletedCandidates(prev => prev.filter(c => c.Q_number !== currentQueue.queueNumber));
+      setSelectedCompletedQnum(null);
+
+      await Swal.fire({ icon: 'success', title: 'จบคิวเรียบร้อย', text: 'รายการถูกบันทึกในประวัติเรียกล่าสุด' });
+    } catch (e) {
+      console.error('Finish failed', e);
+      await Swal.fire({ icon: 'error', title: 'ไม่สามารถจบคิวได้', text: 'กรุณาลองอีกครั้ง' });
+    }
+  };
+
 
   useEffect(() => {
     try {
-      if ((!completedCandidates || completedCandidates.length === 0) && history && history.length > 0) {
-        const filtered = (history as any[]).filter((h: any) => !(h as any).transferred && h.completed_by === operatorId);
-        setCompletedCandidates(filtered);
-        setAllowTransferSelection(filtered.length > 0);
+      if (!history || history.length === 0) {
+        setCompletedCandidates([]);
+        setAllowTransferSelection(false);
+        setSelectedCompletedQnum(null);
+        return;
+      }
+
+      const filtered = (history as any[]).filter((h: any) => !(h as any).transferred && h.completed_by === operatorId && (h.transferable !== false));
+
+      setCompletedCandidates(filtered);
+      setAllowTransferSelection(filtered.length > 0);
+
+      if (!filtered.find(f => f.Q_number === selectedCompletedQnum)) {
         setSelectedCompletedQnum(filtered[0]?.Q_number ?? null);
       }
     } catch (e) {
       console.error('Failed to restore completed candidates from history', e);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history]);
+  }, [history, operatorId, selectedCompletedQnum]);
 
   const handleTransfer = async () => {
     if (!transferTarget) {
@@ -272,7 +301,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           )}
         </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <Button
             onClick={handleCallNext}
             size="lg"
@@ -303,6 +332,17 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           >
             <CheckCircle className="w-6 h-6 mr-2" />
             เสร็จสิ้น
+          </Button>
+
+          <Button
+            onClick={handleFinishQueue}
+            disabled={!currentQueue}
+            variant="destructive"
+            size="lg"
+            className="h-20 text-lg font-semibold shadow-sm"
+          >
+            <CheckCircle className="w-6 h-6 mr-2" />
+            จบคิว
           </Button>
 
           <Button
