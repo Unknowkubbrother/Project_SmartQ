@@ -251,15 +251,15 @@ const DisplayBoard: React.FC = () => {
         </div>
       </header>
 
-      <div className="w-full h-full flex gap-5 m-auto ">
+      <div className="w-full h-full flex gap-5 m-auto">
         {initalData?.VIDEO_URL && (
-          <div className="w-full">
-            <div className="w-full h-full aspect-h-9 rounded-lg overflow-hidden shadow-lg">
+          <div className="w-full h-full flex justify-center items-center">
+            <div className="w-[90%] h-[80%] aspect-h-9 rounded-lg overflow-hidden shadow-lg">
               <ReactPlayer
                 src={initalData.VIDEO_URL}
                 width="100%"
                 height="100%"
-                controls={false}
+                controls={true}
                 playing
                 volume={0}
                 loop
