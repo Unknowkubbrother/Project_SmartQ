@@ -8,9 +8,37 @@ import {
   ArrowRight,
   ArrowLeftFromLine,
   VolumeX,
+  User,
+  MonitorPlay,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import ReactPlayer from "react-player";
+
+// CN Utility for merging class names
+const cn = (
+  ...classes: (
+    | string
+    | boolean
+    | undefined
+    | Record<string, boolean | undefined>
+  )[]
+) => {
+  return classes
+    .map((c) => {
+      if (!c) return "";
+      if (typeof c === "string") return c;
+      if (typeof c === "object") {
+        return Object.entries(c)
+          .filter(([, v]) => !!v)
+          .map(([k]) => k)
+          .join(" ");
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .join(" ");
+};
+
 
 interface ServiceDef {
   name: string;
@@ -37,9 +65,14 @@ const DisplayBoard: React.FC = () => {
     Record<string, { audio: HTMLAudioElement | null; url: string | null }>
   >({});
   const callTimersRef = useRef<Record<string, number | null>>({});
+  
+  // Ref เพื่อเก็บข้อมูลเวลาที่ Card ถูกเรียกครั้งล่าสุด
+  const lastCalledRef = useRef<Record<string, number>>({});
+
 
   const { backendUrl, initalData } = useBackend();
 
+  // --- 1. Data Fetching (Unchanged) ---
   useEffect(() => {
     const fetchServices = async () => {
       try {
@@ -55,6 +88,7 @@ const DisplayBoard: React.FC = () => {
     if (backendUrl) fetchServices();
   }, [backendUrl]);
 
+  // --- 2. WebSocket and State Management Logic (Updated to track lastCalled time) ---
   useEffect(() => {
     let mounted = true;
     services.forEach((s) => {
@@ -113,12 +147,18 @@ const DisplayBoard: React.FC = () => {
               };
               if (msg.type === "queue_update") {
                 const queues = msg.queue || [];
-                const next = queues.find((q: any) => true) || null;
+                // next queue is the first one in the queue list
+                const next = queues.length > 0 ? queues[0] : null; 
                 return { ...prev, [service]: { ...cur, queues, next } };
               } else if (msg.type === "current") {
                 const newState = { ...cur, current: msg.item || null };
                 if (msg.item) {
+                  // ✨ NEW: Update the lastCalledRef time when a new item is called
+                  lastCalledRef.current[service] = Date.now();
                   (newState as ServiceState).isCalling = true;
+                } else if (cur.current) {
+                  // Optional: Clear lastCalled time when queue item is finished
+                   delete lastCalledRef.current[service];
                 }
                 return { ...prev, [service]: newState };
               } else if (msg.type === "status") {
@@ -240,167 +280,247 @@ const DisplayBoard: React.FC = () => {
     };
   }, [services]);
 
+  // --- 3. JSX Rendering (Optimized for 65/35 Split and Ultra-Compact Cards) ---
+
+  const videoEnabled = !!initalData?.VIDEO_URL;
+  
+  // -----------------------------------------------------------------------------------
+  // ✨ LOGIC: Filter and Sort visible services
+  // -----------------------------------------------------------------------------------
+  const visibleServiceDefs = services.filter(s => stateMap[s.name]?.current);
+  
+  const sortedVisibleServices = visibleServiceDefs
+    .map(s => {
+      // Find the corresponding ServiceState and ServiceDef
+      const state = stateMap[s.name];
+      const lastCalledTime = lastCalledRef.current[s.name] || 0;
+      return { def: s, state: state, lastCalled: lastCalledTime };
+    })
+    .filter(item => item.state?.current) // Ensure only calling services are visible
+    // Sort: คิวที่ถูกเรียก "ล่าสุด" (Highest timestamp) จะอยู่ "ด้านล่างสุด" (End of array, last to render)
+    .sort((a, b) => {
+        // Sort primarily by the time they were last called (ascending, so latest is last)
+        if (a.lastCalled !== b.lastCalled) {
+            return a.lastCalled - b.lastCalled;
+        }
+        // Secondary sort by service name for stable order if call times are the same
+        return a.def.name.localeCompare(b.def.name);
+    });
+
+  // Dynamic sizing based on the number of visible cards to force fit
+  const numVisible = sortedVisibleServices.length || 1;
+  // Reduced padding/gap for an ultra-compact look
+  const ultraCompactCardClass = numVisible >= 4 ? "p-3 gap-3" : "p-4 gap-4"; 
+  
+  // New class to manage the size of the single card
+  // If 1-3 cards, limit height to a sensible amount (e.g., 30% of viewport height), 
+  // otherwise let flex-1 distribute evenly.
+  // We use max-h-[30vh] for single card and max-h-[25vh] for two cards to look balanced.
+  const cardHeightClass = cn({
+      "max-h-[30vh]": numVisible === 1,
+      "max-h-[25vh]": numVisible === 2,
+      "flex-1": numVisible >= 3,
+  });
+
+  // -----------------------------------------------------------------------------------
+
+
   return (
-    <div className="h-screen bg-gradient-to-br from-sky-50 via-white to-slate-50 p-8 flex justify-start items-center flex-col">
-      <header className="text-center mb-8">
-        <div className="inline-flex items-center gap-3 bg-sky-600/10 px-4 py-2 rounded-full shadow-sm">
-          <Radio className="text-sky-600" />
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-sky-700">
-            {initalData?.HOSPITAL_NAME}
+    // Use h-screen and remove bottom padding to maximize vertical space
+    <div className="h-screen flex justify-start items-center flex-col bg-gradient-to-br from-sky-50 via-white to-slate-50 p-4 lg:p-6">
+      
+      <header className="text-center mb-3 sm:mb-5 w-full">
+        <div className="inline-flex items-center gap-4 bg-sky-600/10 px-6 py-2 rounded-2xl shadow-lg border border-sky-300">
+          <Radio className="text-sky-600 w-7 h-7 lg:w-9 lg:h-9" />
+          <h1 className="text-3xl sm:text-4xl lg:text-4xl font-extrabold text-sky-800 tracking-wider">
+            {initalData?.HOSPITAL_NAME || "Queue Display"}
           </h1>
         </div>
       </header>
-
-      <div className="w-full h-full flex gap-5 m-auto">
-        {initalData?.VIDEO_URL && (
-          <div className="w-full h-full flex justify-center items-center">
-            <div className="w-[90%] h-[80%] aspect-h-9 rounded-lg overflow-hidden shadow-lg">
+      
+      {/* Main Content Area: Video and Queue List */}
+      <div
+        className={cn(
+          "w-full flex gap-4 lg:gap-6 flex-col md:flex-row flex-1 max-w-full overflow-hidden",
+          {
+            "items-stretch": videoEnabled,
+            "justify-center": !videoEnabled,
+          }
+        )}
+      >
+        {/* Video Player Section (65% width on MD+) */}
+        {videoEnabled && (
+          <div className="md:w-[65%] flex flex-col items-stretch">
+             <div className="flex items-center text-slate-700 mb-2 border-b pb-1 border-slate-200">
+                <MonitorPlay className="w-5 h-5 mr-2 text-sky-600"/>
+                <h2 className="text-lg font-bold lg:text-xl">Video/Advertisements</h2>
+            </div>
+            {/* The video player container */}
+            <div className="w-full aspect-video rounded-xl overflow-hidden shadow-2xl flex-1 bg-gray-200">
               <ReactPlayer
                 src={initalData.VIDEO_URL}
                 width="100%"
                 height="100%"
-                controls={true}
+                controls={false} 
                 playing
                 volume={0}
+                muted={true}
                 loop
               />
             </div>
           </div>
         )}
 
-        <div className="w-[60%] p-4 bg-white/70 rounded-lg shadow-lg backdrop-blur-sm">
-          <section className="grid grid-cols-1 gap-6">
-            {services.map((s) => {
-              const st = stateMap[s.name];
+        {/* Queue Display Section (35% width on MD+) - SINGLE COLUMN */}
+        <div
+          className={cn(
+            "p-3 lg:p-4 bg-white/80 rounded-xl shadow-2xl backdrop-blur-sm flex flex-col mb-3 mr-3",
+            // Changed to w-[35%] for Queue Display
+            videoEnabled ? "md:w-[35%]" : "w-full max-w-full"
+          )}
+        >
+          <div className="flex items-center text-sky-700 mb-3 pb-2 border-b border-sky-200">
+            <Clock className="w-5 h-5 mr-2"/>
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold">คิวกำลังเรียก</h2>
+          </div>
+          
+          {/* Queue Cards: Forced Single Column (grid-cols-1) and height managed */}
+          <section className="grid gap-3 flex-1 grid-cols-1 overflow-hidden">
+            {sortedVisibleServices.map((item) => {
+              const { def: s, state: st } = item;
               const current = st?.current;
               const next = st?.next;
-              const color = s.color || "from-sky-600 to-sky-500";
+              const color = s.color || "from-sky-600 to-sky-500"; 
+
+              const isGradient =
+                typeof color === "string" &&
+                (color.includes("from-") || color.includes("to-"));
+              const bgClass = isGradient
+                ? `bg-gradient-to-br ${color}`
+                : "bg-sky-600";
+              const bgStyle = !isGradient
+                ? ({ background: color } as React.CSSProperties)
+                : undefined;
 
               return (
                 <Card
                   key={s.name}
-                  className="p-6 sm:p-7 border-0 shadow-md hover:shadow-lg transition-shadow duration-200 bg-white/80 h-[300px] flex flex-col"
+                  // Apply ultra-compact padding/gap and dynamic height management
+                  className={cn(
+                    "border-3 border-white shadow-lg transition-all duration-300 bg-white rounded-xl flex flex-col justify-between", 
+                    ultraCompactCardClass, 
+                    cardHeightClass
+                  )}
                 >
-                  <div className="flex-1 flex flex-col justify-between gap-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <h3 className="text-xl sm:text-2xl font-semibold text-sky-700 truncate">
-                              {s.label || s.name}
-                            </h3>
+                  {/* Card Content */}
+                  <div className="flex flex-col flex-1">
+                    
+                    {/* Header and Status */}
+                    <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
+                      <h3 className="text-base lg:text-lg font-bold text-sky-800 truncate">
+                        {s.label || s.name}
+                      </h3>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          st?.muted
+                            ? "bg-rose-100 text-rose-700"
+                            : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        {st?.muted ? (
+                          <VolumeX className="w-3 h-3 mr-1" />
+                        ) : (
+                          <Clock className="w-3 h-3 mr-1" />
+                        )}
+                        {st?.muted ? "ปิดเสียง" : "เสียงเปิด"}
+                      </span>
+                    </div>
+
+                    {/* Current Queue Display */}
+                    <div className="flex items-center gap-3 flex-1 mb-2">
+                      
+                      {/* Queue Number Box (Fixed aspect ratio) */}
+                      <div
+                        className={cn(
+                          // Widen the number box slightly
+                          "flex-shrink-0 w-24 sm:w-28 aspect-square rounded-lg text-white flex items-center justify-center shadow-xl transition-all duration-300",
+                          {
+                            "scale-[1.05] ring-3 ring-sky-300/60 ring-offset-1": st?.isCalling,
+                          },
+                          bgClass
+                        )}
+                        style={bgStyle}
+                      >
+                        <div className="text-center leading-none">
+                            <div className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight drop-shadow-md">
+                              {current.Q_number}
+                            </div>
+                            <div className="text-xs sm:text-sm opacity-90 font-medium mt-1">
+                              {current.counter
+                                ? `${current.counter}` 
+                                : "เรียก"}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium ${
-                                st?.muted
-                                  ? "bg-rose-100 text-rose-700"
-                                  : "bg-sky-100 text-sky-700"
-                              }`}
-                            >
-                              {st?.muted ? (
-                                <VolumeX className="w-4 h-4 mr-1" />
-                              ) : (
-                                <Clock className="w-4 h-4 mr-1" />
-                              )}
-                              {st?.muted ? "ปิดเสียง" : "เสียงเปิด"}
-                            </span>
-                          </div>
+                      </div>
+
+                      {/* Current Patient/Name Details */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <div className="text-xs lg:text-sm font-semibold text-slate-500 mb-0.5">
+                          ผู้รับบริการ
                         </div>
-
-                        <div className="flex items-center gap-6">
-                          {(() => {
-                            const isGradient =
-                              typeof color === "string" &&
-                              (color.includes("from-") ||
-                                color.includes("to-"));
-                            const bgClass = isGradient
-                              ? `bg-gradient-to-br ${color}`
-                              : "";
-                            const bgStyle = !isGradient
-                              ? ({ background: color } as React.CSSProperties)
-                              : undefined;
-
-                            return (
-                              <div
-                                className={`flex-shrink-0 w-36 h-36 sm:w-44 sm:h-44 rounded-xl text-white flex items-center justify-center shadow-inner transition-transform duration-300 ${
-                                  st?.isCalling
-                                    ? "scale-105 ring-4 ring-sky-300/60"
-                                    : ""
-                                } ${bgClass || "bg-sky-600"}`}
-                                style={bgStyle}
-                              >
-                                {current ? (
-                                  <div className="text-center">
-                                    <div className="text-4xl sm:text-5xl font-extrabold tracking-tight">
-                                      {current.Q_number}
-                                    </div>
-                                    <div className="text-sm sm:text-base opacity-95">
-                                      {current.counter
-                                        ? `${current.counter}`
-                                        : "รอเรียก"}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="text-center text-sky-100">
-                                    <div className="text-2xl sm:text-3xl font-semibold">
-                                      -
-                                    </div>
-                                    <div className="text-sm sm:text-base">
-                                      ไม่มีคิว
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm sm:text-base text-slate-700 mb-1 font-medium">
-                              คิวปัจจุบัน
-                            </div>
-                            {current ? (
-                              <div className="text-base sm:text-lg text-slate-800 mb-2 truncate">
-                                {current.FULLNAME_TH}
-                              </div>
-                            ) : (
-                              <div className="text-sm text-slate-400 mb-2">
-                                ไม่มีคิวกำลังเรียก
-                              </div>
-                            )}
-
-                            <div className="text-sm sm:text-base text-slate-600 mb-2 font-medium flex items-center gap-2">
-                              <ArrowRight className="w-4 h-4 text-sky-500" />{" "}
-                              คิวถัดไป
-                            </div>
-                            {next ? (
-                              <div className="text-sm sm:text-base text-slate-800 truncate">
-                                {next.Q_number} — {next.FULLNAME_TH}
-                              </div>
-                            ) : (
-                              <div className="text-sm text-slate-400">
-                                ไม่มีคิวรอ
-                              </div>
-                            )}
-                          </div>
+                        <div className="text-base sm:text-xl lg:text-2xl font-extrabold text-sky-800 truncate leading-snug mb-1">
+                            {current.FULLNAME_TH}
+                        </div>
+                        <div className="text-xs text-slate-600 flex items-center bg-slate-50 p-1 rounded-lg">
+                            <User className="w-3 h-3 mr-1 text-sky-600" />
+                            คิว: <span className="font-bold ml-1">{current.Q_number}</span>
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Next Queue Section (Ultra-compact) */}
+                    <div className="pt-1.5 border-t border-slate-100">
+                        <div className="text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1">
+                            <ArrowRight className="w-3 h-3 text-orange-500" /> 
+                            คิวถัดไป
+                        </div>
+                        {next ? (
+                            <div className="text-xs font-bold text-slate-800 truncate bg-orange-50 p-1 rounded-lg border-l-3 border-orange-400">
+                                {next.Q_number} — {next.FULLNAME_TH}
+                            </div>
+                        ) : (
+                             <div className="text-xs text-slate-500 bg-slate-100 p-1 rounded-lg">
+                                ไม่มีคิวรอถัดไป
+                            </div>
+                        )}
+                    </div>
+
                   </div>
                 </Card>
               );
             })}
           </section>
+
+          {/* กรณีที่ไม่มีคิวใดๆ เลย */}
+          {sortedVisibleServices.length === 0 && (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-xl lg:text-2xl font-medium text-slate-400 p-6 rounded-xl border-3 border-dashed border-slate-300 m-auto">
+                    <Clock className="w-6 h-6 inline mr-2" />
+                    ไม่มีคิวกำลังให้บริการ
+                </p>
+              </div>
+          )}
+
         </div>
       </div>
-
-      <div className="mt-8 text-center">
+      {/* Footer (Minimal height management) */}
+      <div className="mt-1 sm:mt-5 text-center w-full max-w-7xl">
         <Link to="/start" className="inline-block">
           <Button
             variant="outline"
-            className="inline-flex items-center gap-2 border-sky-600 text-sky-600 hover:bg-sky-50"
+            className="inline-flex items-center gap-2 text-sky-600 hover:bg-sky-50 transition-colors text-sm px-4 py-2"
           >
-            <ArrowLeftFromLine /> กลับไปเลือกบริการ
+            <ArrowLeftFromLine className="w-4 h-4" /> กลับไปเลือกบริการ
           </Button>
         </Link>
       </div>
