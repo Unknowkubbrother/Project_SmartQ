@@ -313,9 +313,6 @@ const DisplayBoard: React.FC = () => {
   const ultraCompactCardClass = numVisible >= 4 ? "p-3 gap-3" : "p-4 gap-4"; 
   
   // New class to manage the size of the single card
-  // If 1-3 cards, limit height to a sensible amount (e.g., 30% of viewport height), 
-  // otherwise let flex-1 distribute evenly.
-  // We use max-h-[30vh] for single card and max-h-[25vh] for two cards to look balanced.
   const cardHeightClass = cn({
       "max-h-[30vh]": numVisible === 1,
       "max-h-[25vh]": numVisible === 2,
@@ -330,8 +327,8 @@ const DisplayBoard: React.FC = () => {
     <div className="h-screen flex justify-start items-center flex-col bg-gradient-to-br from-sky-50 via-white to-slate-50 p-4 lg:p-6">
       
       <header className="text-center mb-3 sm:mb-5 w-full">
-        <div className="inline-flex items-center gap-4 bg-sky-600/10 px-6 py-2 rounded-2xl shadow-lg border border-sky-300">
-          <Radio className="text-sky-600 w-7 h-7 lg:w-9 lg:h-9" />
+        <div className="inline-flex items-center gap-4 bg-sky-600/10 px-6 py-2 rounded-2xl shadow-xl border border-sky-400 transform transition-all hover:scale-[1.01] duration-300">
+          <Radio className="text-sky-600 w-7 h-7 lg:w-9 lg:h-9 animate-pulse" />
           <h1 className="text-3xl sm:text-4xl lg:text-4xl font-extrabold text-sky-800 tracking-wider">
             {initalData?.HOSPITAL_NAME || "Queue Display"}
           </h1>
@@ -356,7 +353,7 @@ const DisplayBoard: React.FC = () => {
                 <h2 className="text-lg font-bold lg:text-xl">Video/Advertisements</h2>
             </div>
             {/* The video player container */}
-            <div className="w-full aspect-video rounded-xl overflow-hidden shadow-2xl flex-1 bg-gray-200">
+            <div className="w-full aspect-video rounded-xl overflow-hidden shadow-2xl flex-1 bg-gray-200 border-4 border-slate-300">
               <ReactPlayer
                 src={initalData.VIDEO_URL}
                 width="100%"
@@ -374,14 +371,14 @@ const DisplayBoard: React.FC = () => {
         {/* Queue Display Section (35% width on MD+) - SINGLE COLUMN */}
         <div
           className={cn(
-            "p-3 lg:p-4 bg-white/80 rounded-xl shadow-2xl backdrop-blur-sm flex flex-col mb-3 mr-3",
+            "p-3 lg:p-4 bg-white/90 rounded-xl shadow-2xl backdrop-blur-sm flex flex-col mb-3 mr-3 border border-slate-200", // Added subtle border
             // Changed to w-[35%] for Queue Display
             videoEnabled ? "md:w-[35%]" : "w-full max-w-full"
           )}
         >
-          <div className="flex items-center text-sky-700 mb-3 pb-2 border-b border-sky-200">
+          <div className="flex items-center text-sky-700 mb-3 pb-2 border-b border-sky-300">
             <Clock className="w-5 h-5 mr-2"/>
-            <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold">คิวกำลังเรียก</h2>
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-600 to-cyan-500">คิวกำลังเรียก</h2>
           </div>
           
           {/* Queue Cards: Forced Single Column (grid-cols-1) and height managed */}
@@ -390,7 +387,8 @@ const DisplayBoard: React.FC = () => {
               const { def: s, state: st } = item;
               const current = st?.current;
               const next = st?.next;
-              const color = s.color || "from-sky-600 to-sky-500"; 
+              // Enhanced Default Gradient
+              const color = s.color || "from-sky-500 to-indigo-600"; 
 
               const isGradient =
                 typeof color === "string" &&
@@ -402,56 +400,68 @@ const DisplayBoard: React.FC = () => {
                 ? ({ background: color } as React.CSSProperties)
                 : undefined;
 
+              const isCalling = st?.isCalling;
+
               return (
                 <Card
                   key={s.name}
                   // Apply ultra-compact padding/gap and dynamic height management
                   className={cn(
-                    "border-3 border-white shadow-lg transition-all duration-300 bg-white rounded-xl flex flex-col justify-between", 
-                    ultraCompactCardClass, 
-                    cardHeightClass
+                    "border-3 border-white shadow-lg transition-all duration-300 bg-white rounded-xl flex flex-col justify-between relative",
+                    cardHeightClass,
                   )}
                 >
-                  {/* Card Content */}
+                  {/* Card Content - MAIN SECTION (Now includes Next Queue) */}
                   <div className="flex flex-col flex-1">
                     
                     {/* Header and Status */}
-                    <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
-                      <h3 className="text-base lg:text-lg font-bold text-sky-800 truncate">
-                        {s.label || s.name}
-                      </h3>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          st?.muted
-                            ? "bg-rose-100 text-rose-700"
-                            : "bg-emerald-100 text-emerald-700"
-                        }`}
-                      >
-                        {st?.muted ? (
-                          <VolumeX className="w-3 h-3 mr-1" />
-                        ) : (
-                          <Clock className="w-3 h-3 mr-1" />
-                        )}
-                        {st?.muted ? "ปิดเสียง" : "เสียงเปิด"}
-                      </span>
+                    <div className="p-3 lg:p-4 pb-2 border-b border-slate-100">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-base lg:text-lg font-bold text-sky-800 truncate">
+                          {s.label || s.name}
+                        </h3>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            st?.muted
+                              ? "bg-rose-100 text-rose-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}
+                        >
+                          {st?.muted ? (
+                            <VolumeX className="w-3 h-3 mr-1" />
+                          ) : (
+                            <Clock className="w-3 h-3 mr-1" />
+                          )}
+                          {st?.muted ? "เปิดเสียง" : "กำลังรอ"}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Current Queue Display */}
-                    <div className="flex items-center gap-3 flex-1 mb-2">
+                    {/* Current Queue Display + Patient Details (Main Body) */}
+                    <div className="flex items-stretch gap-3 flex-1 p-3 lg:p-4"> 
                       
                       {/* Queue Number Box (Fixed aspect ratio) */}
                       <div
                         className={cn(
                           // Widen the number box slightly
-                          "flex-shrink-0 w-24 sm:w-28 aspect-square rounded-lg text-white flex items-center justify-center shadow-xl transition-all duration-300",
-                          {
-                            "scale-[1.05] ring-3 ring-sky-300/60 ring-offset-1": st?.isCalling,
-                          },
-                          bgClass
+                          "flex-shrink-0 w-24 sm:w-28 rounded-lg text-white flex items-center justify-center shadow-xl transition-all duration-500",
+                          "aspect-square",
+                          bgClass,
+                          // NEW: Add relative and z-10 for smooth pop-out
+                          "relative z-10", 
                         )}
-                        style={bgStyle}
+                        style={{ ...bgStyle }}
                       >
-                        <div className="text-center leading-none">
+                        {/* THE TARGET DIV FOR ANIMATION (Queue Number) */}
+                        <div 
+                          className={cn(
+                            "text-center leading-none p-2 transition-all duration-300",
+                            {
+                              // Apply transform/ring/shadow ONLY HERE, reduced scale
+                              "shadow-2xl shadow-sky-400/50 transform scale-[1.03] ring-4 ring-white/50 rounded-lg": isCalling
+                            }
+                          )}
+                        >
                             <div className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight drop-shadow-md">
                               {current.Q_number}
                             </div>
@@ -477,24 +487,24 @@ const DisplayBoard: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Next Queue Section (Ultra-compact) */}
-                    <div className="pt-1.5 border-t border-slate-100">
+
+                    {/* Next Queue Section (Full Width, Inside Card) */}
+                    <div className="w-full pt-2 border-t border-slate-100 p-3 lg:p-4">
                         <div className="text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1">
                             <ArrowRight className="w-3 h-3 text-orange-500" /> 
                             คิวถัดไป
                         </div>
                         {next ? (
-                            <div className="text-xs font-bold text-slate-800 truncate bg-orange-50 p-1 rounded-lg border-l-3 border-orange-400">
+                            <div className="text-xs font-bold text-slate-800 truncate bg-orange-100/70 p-1.5 rounded-lg border-l-3 border-orange-500 transition-colors duration-300 hover:bg-orange-200">
                                 {next.Q_number} — {next.FULLNAME_TH}
                             </div>
                         ) : (
-                             <div className="text-xs text-slate-500 bg-slate-100 p-1 rounded-lg">
+                             <div className="text-xs text-slate-500 bg-slate-100 p-1.5 rounded-lg">
                                 ไม่มีคิวรอถัดไป
                             </div>
                         )}
                     </div>
-
+                    
                   </div>
                 </Card>
               );
@@ -503,8 +513,9 @@ const DisplayBoard: React.FC = () => {
 
           {/* กรณีที่ไม่มีคิวใดๆ เลย */}
           {sortedVisibleServices.length === 0 && (
+              // Adjusted to remove m-auto and rely on flex center alignment
               <div className="flex items-center justify-center h-full">
-                <p className="text-xl lg:text-2xl font-medium text-slate-400 p-6 rounded-xl border-3 border-dashed border-slate-300 m-auto">
+                <p className="text-xl lg:text-2xl font-medium text-slate-400 p-6 rounded-xl border-3 border-dashed border-slate-300">
                     <Clock className="w-6 h-6 inline mr-2" />
                     ไม่มีคิวกำลังให้บริการ
                 </p>
