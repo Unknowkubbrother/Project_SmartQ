@@ -66,7 +66,7 @@ const DisplayBoard: React.FC = () => {
   >({});
   const callTimersRef = useRef<Record<string, number | null>>({});
   
-  // Ref เพื่อเก็บข้อมูลเวลาที่ Card ถูกเรียกครั้งล่าสุด
+  
   const lastCalledRef = useRef<Record<string, number>>({});
 
 
@@ -147,17 +147,17 @@ const DisplayBoard: React.FC = () => {
               };
               if (msg.type === "queue_update") {
                 const queues = msg.queue || [];
-                // next queue is the first one in the queue list
+                
                 const next = queues.length > 0 ? queues[0] : null; 
                 return { ...prev, [service]: { ...cur, queues, next } };
               } else if (msg.type === "current") {
                 const newState = { ...cur, current: msg.item || null };
                 if (msg.item) {
-                  // ✨ NEW: Update the lastCalledRef time when a new item is called
+                  
                   lastCalledRef.current[service] = Date.now();
                   (newState as ServiceState).isCalling = true;
                 } else if (cur.current) {
-                  // Optional: Clear lastCalled time when queue item is finished
+                  
                    delete lastCalledRef.current[service];
                 }
                 return { ...prev, [service]: newState };
@@ -284,46 +284,44 @@ const DisplayBoard: React.FC = () => {
 
   const videoEnabled = !!initalData?.VIDEO_URL;
   
-  // -----------------------------------------------------------------------------------
-  // ✨ LOGIC: Filter and Sort visible services
-  // -----------------------------------------------------------------------------------
+  
+  
   const visibleServiceDefs = services.filter(s => stateMap[s.name]?.current);
   
   const sortedVisibleServices = visibleServiceDefs
     .map(s => {
-      // Find the corresponding ServiceState and ServiceDef
+      
       const state = stateMap[s.name];
       const lastCalledTime = lastCalledRef.current[s.name] || 0;
       return { def: s, state: state, lastCalled: lastCalledTime };
     })
-    .filter(item => item.state?.current) // Ensure only calling services are visible
-    // Sort: คิวที่ถูกเรียก "ล่าสุด" (Highest timestamp) จะอยู่ "ด้านล่างสุด" (End of array, last to render)
+    .filter(item => item.state?.current) 
+    
     .sort((a, b) => {
-        // Sort primarily by the time they were last called (ascending, so latest is last)
+        
         if (a.lastCalled !== b.lastCalled) {
             return a.lastCalled - b.lastCalled;
         }
-        // Secondary sort by service name for stable order if call times are the same
+        
         return a.def.name.localeCompare(b.def.name);
     });
 
-  // Dynamic sizing based on the number of visible cards to force fit
+  
   const numVisible = sortedVisibleServices.length || 1;
-  // Reduced padding/gap for an ultra-compact look
+  
   const ultraCompactCardClass = numVisible >= 4 ? "p-3 gap-3" : "p-4 gap-4"; 
   
-  // New class to manage the size of the single card
+  
   const cardHeightClass = cn({
       "max-h-[30vh]": numVisible === 1,
       "max-h-[25vh]": numVisible === 2,
       "flex-1": numVisible >= 3,
   });
 
-  // -----------------------------------------------------------------------------------
-
+  
 
   return (
-    // Use h-screen and remove bottom padding to maximize vertical space
+    
     <div className="h-screen flex justify-start items-center flex-col bg-gradient-to-br from-sky-50 via-white to-slate-50 p-4 lg:p-6">
       
       <header className="text-center mb-3 sm:mb-5 w-full">
@@ -335,7 +333,7 @@ const DisplayBoard: React.FC = () => {
         </div>
       </header>
       
-      {/* Main Content Area: Video and Queue List */}
+      
       <div
         className={cn(
           "w-full flex gap-4 lg:gap-6 flex-col md:flex-row flex-1 max-w-full overflow-hidden",
@@ -345,14 +343,14 @@ const DisplayBoard: React.FC = () => {
           }
         )}
       >
-        {/* Video Player Section (65% width on MD+) */}
+        
         {videoEnabled && (
           <div className="md:w-[65%] flex flex-col items-stretch">
              <div className="flex items-center text-slate-700 mb-2 border-b pb-1 border-slate-200">
                 <MonitorPlay className="w-5 h-5 mr-2 text-sky-600"/>
                 <h2 className="text-lg font-bold lg:text-xl">Video/Advertisements</h2>
             </div>
-            {/* The video player container */}
+            
             <div className="w-full aspect-video rounded-xl overflow-hidden shadow-2xl flex-1 bg-gray-200 border-4 border-slate-300">
               <ReactPlayer
                 src={initalData.VIDEO_URL}
@@ -368,11 +366,11 @@ const DisplayBoard: React.FC = () => {
           </div>
         )}
 
-        {/* Queue Display Section (35% width on MD+) - SINGLE COLUMN */}
+        
         <div
           className={cn(
-            "p-3 lg:p-4 bg-white/90 rounded-xl shadow-2xl backdrop-blur-sm flex flex-col mb-3 mr-3 border border-slate-200", // Added subtle border
-            // Changed to w-[35%] for Queue Display
+            "p-3 lg:p-4 bg-white/90 rounded-xl shadow-2xl backdrop-blur-sm flex flex-col mb-3 mr-3 border border-slate-200", 
+            
             videoEnabled ? "md:w-[35%]" : "w-full max-w-full"
           )}
         >
@@ -381,13 +379,13 @@ const DisplayBoard: React.FC = () => {
             <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-600 to-cyan-500">คิวกำลังเรียก</h2>
           </div>
           
-          {/* Queue Cards: Forced Single Column (grid-cols-1) and height managed */}
+          
           <section className="grid gap-3 flex-1 grid-cols-1 overflow-hidden">
             {sortedVisibleServices.map((item) => {
               const { def: s, state: st } = item;
               const current = st?.current;
               const next = st?.next;
-              // Enhanced Default Gradient
+              
               const color = s.color || "from-sky-500 to-indigo-600"; 
 
               const isGradient =
@@ -405,16 +403,16 @@ const DisplayBoard: React.FC = () => {
               return (
                 <Card
                   key={s.name}
-                  // Apply ultra-compact padding/gap and dynamic height management
+                  
                   className={cn(
                     "border-3 border-white shadow-lg transition-all duration-300 bg-white rounded-xl flex flex-col justify-between relative",
                     cardHeightClass,
                   )}
                 >
-                  {/* Card Content - MAIN SECTION (Now includes Next Queue) */}
+                  
                   <div className="flex flex-col flex-1">
                     
-                    {/* Header and Status */}
+                    
                     <div className="p-3 lg:p-4 pb-2 border-b border-slate-100">
                       <div className="flex items-center justify-between">
                         <h3 className="text-base lg:text-lg font-bold text-sky-800 truncate">
@@ -437,30 +435,31 @@ const DisplayBoard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Current Queue Display + Patient Details (Main Body) */}
+                    
                     <div className="flex items-stretch gap-3 flex-1 p-3 lg:p-4"> 
                       
-                      {/* Queue Number Box (Fixed aspect ratio) */}
+                      
                       <div
                         className={cn(
-                          // Widen the number box slightly
+                          
                           "flex-shrink-0 w-24 sm:w-28 rounded-lg text-white flex items-center justify-center shadow-xl transition-all duration-500",
                           "aspect-square",
-                          bgClass,
-                          // NEW: Add relative and z-10 for smooth pop-out
+                          
                           "relative z-10", 
                         )}
-                        style={{ ...bgStyle }}
+                        
                       >
-                        {/* THE TARGET DIV FOR ANIMATION (Queue Number) */}
+                        
                         <div 
                           className={cn(
-                            "text-center leading-none p-2 transition-all duration-300",
+                            "text-center leading-none p-2 transition-all duration-300 rounded-lg w-full h-full flex flex-col items-center justify-center", 
+                            bgClass, 
                             {
-                              // Apply transform/ring/shadow ONLY HERE, reduced scale
-                              "shadow-2xl shadow-sky-400/50 transform scale-[1.03] ring-4 ring-white/50 rounded-lg": isCalling
+                              
+                              "shadow-2xl shadow-sky-400/50 transform scale-[1.03] ring-4 ring-white/50": isCalling
                             }
                           )}
+                          style={{ ...bgStyle }} 
                         >
                             <div className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight drop-shadow-md">
                               {current.Q_number}
@@ -473,7 +472,7 @@ const DisplayBoard: React.FC = () => {
                           </div>
                       </div>
 
-                      {/* Current Patient/Name Details */}
+                      
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
                         <div className="text-xs lg:text-sm font-semibold text-slate-500 mb-0.5">
                           ผู้รับบริการ
@@ -488,7 +487,7 @@ const DisplayBoard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Next Queue Section (Full Width, Inside Card) */}
+                    
                     <div className="w-full pt-2 border-t border-slate-100 p-3 lg:p-4">
                         <div className="text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1">
                             <ArrowRight className="w-3 h-3 text-orange-500" /> 
@@ -511,9 +510,9 @@ const DisplayBoard: React.FC = () => {
             })}
           </section>
 
-          {/* กรณีที่ไม่มีคิวใดๆ เลย */}
+          
           {sortedVisibleServices.length === 0 && (
-              // Adjusted to remove m-auto and rely on flex center alignment
+              
               <div className="flex items-center justify-center h-full">
                 <p className="text-xl lg:text-2xl font-medium text-slate-400 p-6 rounded-xl border-3 border-dashed border-slate-300">
                     <Clock className="w-6 h-6 inline mr-2" />
@@ -524,7 +523,7 @@ const DisplayBoard: React.FC = () => {
 
         </div>
       </div>
-      {/* Footer (Minimal height management) */}
+      
       <div className="mt-1 sm:mt-5 text-center w-full max-w-7xl">
         <Link to="/start" className="inline-block">
           <Button
