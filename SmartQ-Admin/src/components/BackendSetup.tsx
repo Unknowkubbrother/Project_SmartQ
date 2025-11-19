@@ -4,10 +4,25 @@ import { Input } from '@/components/ui/input';
 import { useNavigate } from 'react-router-dom';
 import { useBackend } from '@/contexts/BackendContext';
 
-const tryConnect = async (url: string, timeout = 4000) => {
-    // Ensure url has protocol
-    let final = url;
-    if (!/^https?:\/\//i.test(final)) final = `http://${final}`;
+const tryConnect = async (input: string, timeout = 4000) => {
+    // Accepts:
+    // - host (e.g. 192.168.0.158) -> will try http://<host>:8000
+    // - host:port (e.g. 192.168.0.158:8000) -> will try http://<host>:<port>
+    // - full URL (http://... or https://...) -> will use as-is
+    let final = input.trim();
+
+    if (!final) return { ok: false, error: 'empty' };
+
+    // if starts with http/https, use as-is
+    if (!/^https?:\/\//i.test(final)) {
+        // If user provided host:port (contains ':'), assume they included port
+        // Otherwise append default port 8000
+        if (!final.includes(':')) {
+            final = `http://${final}:8000`;
+        } else {
+            final = `http://${final}`;
+        }
+    }
 
     // small fetch with timeout
     const controller = new AbortController();
@@ -107,13 +122,13 @@ const BackendSetup: React.FC = () => {
             <div className="w-full max-w-xl">
                 <div className="text-center mb-6">
                     <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">ตั้งค่า Server</h1>
-                    <p className="text-muted-foreground mt-1">กรุณาใส่ URL ของ server ของคุณ (เช่น http://192.168.0.158:8000)</p>
+                    <p className="text-muted-foreground mt-1">กรุณาใส่ที่อยู่ของ server ของคุณ (เช่น 192.168.0.158)</p>
                 </div>
 
                 <div className="bg-card rounded-lg p-6 shadow-md">
                     <div className="mb-4">
-                        <label className="block text-sm font-medium text-muted-foreground mb-2">Server URL</label>
-                        <Input value={url} onChange={(e) => setUrl((e.target as HTMLInputElement).value)} placeholder="http://192.168.0.158:8000" />
+                        <label className="block text-sm font-medium text-muted-foreground mb-2">Server</label>
+                        <Input value={url} onChange={(e) => setUrl((e.target as HTMLInputElement).value)} placeholder="192.168.0.158" />
                     </div>
 
                     {/* If connectedUrl is set, require login first (preferred) then allow operatorName registration */}

@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "smartq-admin",
-        "width": 1000,
-        "height": 800
+        "width": 1300,
+        "height": 900
       }
     ],
     "security": {
