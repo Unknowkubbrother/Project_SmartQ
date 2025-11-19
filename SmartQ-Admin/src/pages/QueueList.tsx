@@ -63,6 +63,7 @@ const QueueList = () => {
           <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
             หน้ารายการคิว
           </h1>
+          <p className="text-muted-foreground">บริการ: {serviceName}</p>
         </div>
 
         {/* Stats Cards */}

@@ -9,6 +9,7 @@ import Swal from 'sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 import { Link } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 interface ServiceInfo {
   name: string;
@@ -29,6 +30,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const serviceName = propServiceName || params.get('service') || 'inspect';
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!backendUrl) return;
@@ -99,6 +101,10 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
       console.error('Finish failed', e);
       await Swal.fire({ icon: 'error', title: 'ไม่สามารถจบคิวได้', text: 'กรุณาลองอีกครั้ง' });
     }
+  };
+
+  const handleSelectService = (serviceName: string) => {
+    navigate('/queue-list', { state: { serviceName } });
   };
 
 
@@ -326,7 +332,7 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           <Button
             onClick={handleCompleteAndEnableTransfer}
             disabled={!currentQueue}
-            variant="secondary"
+            variant="outline"
             size="lg"
             className="h-20 text-lg font-semibold shadow-sm"
           >
@@ -348,8 +354,8 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
           <Button
             onClick={handleSkip}
             disabled={!currentQueue || isSkipping}
-            variant="ghost"
             size="lg"
+            variant="outline"
             className="h-20 text-lg font-semibold shadow-sm"
           >
             ข้ามคิว
@@ -397,9 +403,8 @@ const CallQueue = ({ serviceName: propServiceName }: { serviceName?: string } = 
         </Card>
 
         <div className="flex items-center justify-between">
-          <Link to="/">
-            <Button variant="ghost">← กลับหน้ารายการคิว</Button>
-          </Link>
+          <Button variant="ghost" onClick={() => handleSelectService(serviceName)}>← กลับหน้ารายการคิว</Button>
+
 
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={toggleMute}>
