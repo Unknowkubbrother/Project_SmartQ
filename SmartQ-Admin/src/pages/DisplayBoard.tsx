@@ -39,7 +39,6 @@ const cn = (
     .join(" ");
 };
 
-
 interface ServiceDef {
   name: string;
   label?: string;
@@ -66,11 +65,10 @@ const DisplayBoard: React.FC = () => {
     Record<string, { audio: HTMLAudioElement | null; url: string | null }>
   >({});
   const callTimersRef = useRef<Record<string, number | null>>({});
-  
+  const listRef = useRef<HTMLElement>(null);
   
   const { backendUrl, initalData } = useBackend();
 
-  
   useEffect(() => {
     const fetchServices = async () => {
       try {
@@ -86,7 +84,6 @@ const DisplayBoard: React.FC = () => {
     if (backendUrl) fetchServices();
   }, [backendUrl]);
 
-  
   useEffect(() => {
     let mounted = true;
     services.forEach((s) => {
@@ -147,14 +144,12 @@ const DisplayBoard: React.FC = () => {
               };
               if (msg.type === "queue_update") {
                 const queues = msg.queue || [];
-                
                 const next = queues.length > 0 ? queues[0] : null; 
                 return { ...prev, [service]: { ...cur, queues, next } };
               } else if (msg.type === "current") {
                 const now = Date.now();
                 const newState = { ...cur, current: msg.item || null };
                 if (msg.item) {
-                  
                   (newState as ServiceState).lastCalledTimestamp = now;
                   (newState as ServiceState).isCalling = true;
                 }
@@ -250,12 +245,9 @@ const DisplayBoard: React.FC = () => {
 
     return () => {
       mounted = false;
-
       Object.values(wsRefs.current).forEach((w) => w && w.close());
-
       Object.values(callTimersRef.current).forEach((t) => t && clearTimeout(t));
       callTimersRef.current = {};
-
       Object.values(audioRefs.current).forEach((entry) => {
         try {
           if (entry?.audio) {
@@ -278,7 +270,6 @@ const DisplayBoard: React.FC = () => {
     };
   }, [services]);
 
-  
   const videoEnabled = !!initalData?.VIDEO_URL;
   const imageEnabled = !!(initalData as any)?.IMAGE_URL;
 
@@ -301,31 +292,23 @@ const DisplayBoard: React.FC = () => {
     if (mediaMode === "image" && !imageEnabled && videoEnabled) setMediaMode("video");
   }, [videoEnabled, imageEnabled]);
   
-  
-  
   const visibleServiceDefs = services.filter(s => stateMap[s.name]?.current);
   
   const sortedVisibleServices = visibleServiceDefs
     .map(s => {
-      
       const state = stateMap[s.name];
       const lastCalledTime = state?.lastCalledTimestamp || 0;
       return { def: s, state: state, lastCalled: lastCalledTime };
     })
     .filter(item => item.state?.current) 
-    
     .sort((a, b) => {
-        
         if (a.lastCalled !== b.lastCalled) {
             return b.lastCalled - a.lastCalled; 
         }
-        
         return a.def.name.localeCompare(b.def.name);
     });
 
-  
   const numVisible = sortedVisibleServices.length || 1;
-  
   
   const cardHeightClass = cn({
       "max-h-[30vh]": numVisible === 1,
@@ -333,12 +316,29 @@ const DisplayBoard: React.FC = () => {
       "flex-1": numVisible >= 3,
   });
 
-  
+  useEffect(() => {
+    const container = listRef.current;
+    if (!container || sortedVisibleServices.length < 3) {
+      if (container) container.scrollTop = 0;
+      return;
+    }
+
+    const speed = 1; 
+    const intervalTime = 50; 
+
+    const scrollInterval = setInterval(() => {
+      if (container.scrollTop + container.clientHeight >= container.scrollHeight - 1) {
+         container.scrollTop = 0;
+      } else {
+         container.scrollTop += speed;
+      }
+    }, intervalTime);
+
+    return () => clearInterval(scrollInterval);
+  }, [sortedVisibleServices.length]);
 
   return (
-    
     <div className="h-screen flex justify-start items-center flex-col bg-gradient-to-br from-sky-50 via-white to-slate-50 p-4 lg:p-6">
-      
       <header className="text-center mb-3 sm:mb-5 w-full relative">
         <Link to="/start" className="absolute left-0 top-1/2 transform -translate-y-1/2">
           <Button
@@ -356,7 +356,6 @@ const DisplayBoard: React.FC = () => {
         </div>
       </header>
       
-      
       <div
         className={cn(
           "w-full flex gap-4 lg:gap-6 flex-col md:flex-row flex-1 max-w-full overflow-hidden",
@@ -366,7 +365,6 @@ const DisplayBoard: React.FC = () => {
           }
         )}
       >
-        
         {(videoEnabled || imageEnabled) && (
           <div className="md:w-[65%] flex flex-col items-stretch">
             <div className="flex items-center justify-between text-slate-700 mb-2 border-b pb-1 border-slate-200">
@@ -425,7 +423,6 @@ const DisplayBoard: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                
                 videoEnabled ? (
                   <ReactPlayer
                     src={initalData.VIDEO_URL}
@@ -453,11 +450,9 @@ const DisplayBoard: React.FC = () => {
           </div>
         )}
 
-        
         <div
           className={cn(
             "p-3 lg:p-4 bg-white/90 rounded-xl shadow-2xl backdrop-blur-sm flex flex-col mb-3 mr-3 border border-slate-200", 
-            
             videoEnabled ? "md:w-[35%]" : "w-full max-w-full"
           )}
         >
@@ -466,15 +461,15 @@ const DisplayBoard: React.FC = () => {
             <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-600 to-cyan-500">คิวกำลังเรียก</h2>
           </div>
           
-          
-          <section className="grid gap-3 flex-1 grid-cols-1 overflow-y-auto">
+          <section 
+            ref={listRef}
+            className="grid gap-3 flex-1 grid-cols-1 overflow-y-auto no-scrollbar"
+          >
             {sortedVisibleServices.map((item) => {
               const { def: s, state: st } = item;
               const current = st?.current;
               const next = st?.next;
-              
               const color = s.color || "from-sky-500 to-indigo-600"; 
-
               const isGradient =
                 typeof color === "string" &&
                 (color.includes("from-") || color.includes("to-"));
@@ -484,22 +479,17 @@ const DisplayBoard: React.FC = () => {
               const bgStyle = !isGradient
                 ? ({ background: color } as React.CSSProperties)
                 : undefined;
-
               const isCalling = st?.isCalling;
 
               return (
                 <Card
                   key={s.name}
-                  
                   className={cn(
                     "border-3 border-white shadow-lg transition-all duration-300 bg-white rounded-xl flex flex-col justify-between relative",
                     cardHeightClass,
                   )}
                 >
-                  
                   <div className="flex flex-col flex-1">
-                    
-                    
                     <div className="p-3 lg:p-4 pb-2 border-b border-slate-100">
                       <div className="flex items-center justify-between">
                         <h3 className="text-base lg:text-lg font-bold text-sky-800 truncate">
@@ -522,27 +512,19 @@ const DisplayBoard: React.FC = () => {
                       </div>
                     </div>
 
-                    
                     <div className="flex items-stretch gap-3 flex-1 p-3 lg:p-4"> 
-                      
-                      
                       <div
                         className={cn(
-                          
                           "flex-shrink-0 w-24 sm:w-28 rounded-lg text-white flex items-center justify-center shadow-xl transition-all duration-500",
                           "aspect-square",
-                          
                           "relative z-10", 
                         )}
-                        
                       >
-                        
                         <div 
                           className={cn(
                             "text-center leading-none aspect-square transition-all duration-300 rounded-lg w-full h-full flex flex-col items-center justify-center", 
                             bgClass, 
                             {
-                              
                               "shadow-2xl shadow-sky-400/50 transform scale-[1.03] ring-4 ring-white/50": isCalling
                             }
                           )}
@@ -559,7 +541,6 @@ const DisplayBoard: React.FC = () => {
                           </div>
                       </div>
 
-                      
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
                         <div className="text-xs lg:text-sm font-semibold text-slate-500 mb-0.5">
                           ผู้รับบริการ
@@ -574,7 +555,6 @@ const DisplayBoard: React.FC = () => {
                       </div>
                     </div>
 
-                    
                     <div className="w-full pt-2 border-t border-slate-100 p-3 lg:p-4">
                         <div className="text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1">
                             <ArrowRight className="w-3 h-3 text-orange-500" /> 
@@ -590,16 +570,13 @@ const DisplayBoard: React.FC = () => {
                             </div>
                         )}
                     </div>
-                    
                   </div>
                 </Card>
               );
             })}
           </section>
 
-          
           {sortedVisibleServices.length === 0 && (
-              
               <div className="flex items-center justify-center h-full">
                 <p className="text-xl lg:text-2xl font-medium text-slate-400 p-6 rounded-xl border-3 border-dashed border-slate-300">
                     <Clock className="w-6 h-6 inline mr-2" />
@@ -607,10 +584,8 @@ const DisplayBoard: React.FC = () => {
                 </p>
               </div>
           )}
-
         </div>
       </div>
-    
     </div>
   );
 };
