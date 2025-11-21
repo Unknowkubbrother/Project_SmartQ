@@ -310,11 +310,13 @@ const DisplayBoard: React.FC = () => {
 
   const numVisible = sortedVisibleServices.length || 1;
   
+
   const cardHeightClass = cn({
-      "max-h-[30vh]": numVisible === 1,
-      "max-h-[23vh]": numVisible === 2,
-      "flex-1": numVisible >= 3,
+      "min-h-[30vh]": numVisible === 1, 
+      "h-[calc(50%-0.5rem)]": numVisible === 2, 
+      "min-h-[24vh] flex-shrink-0": numVisible >= 3,
   });
+  
 
   useEffect(() => {
     const container = listRef.current;
@@ -463,7 +465,8 @@ const DisplayBoard: React.FC = () => {
           
           <section 
             ref={listRef}
-            className="grid gap-3 flex-1 grid-cols-1 overflow-y-auto no-scrollbar"
+            // เปลี่ยนจาก grid เป็น flex-col เพื่อรองรับการยืดหยุ่นที่ดีกว่า
+            className="flex flex-col gap-3 flex-1 overflow-y-auto no-scrollbar h-full"
           >
             {sortedVisibleServices.map((item) => {
               const { def: s, state: st } = item;
