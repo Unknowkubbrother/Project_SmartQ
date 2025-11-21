@@ -2,8 +2,8 @@
     "DEBUG": true,
     "HOSPITAL_NAME": "โรงพยาบาลส่งเสริมสุขภาพตำบลคลองบุหรี่",
     "LOGO_FILE": "logo.png",
-    "VIDEO_URL": "https://www.youtube.com/watch?v=VQo4hyWfBQ4",
-    "IMAGE_URL": "6b7b5f8aafac5edffd93fdc60ed0f772.png",
+    "VIDEO_URL": "https://www.youtube.com/watch?v=XmSeOpbA3Xo",
+    "IMAGE_URL": "influenza-type-a-symptoms.png",
     "DB": {
         "HOST": "localhost",
         "PORT": 3333,
