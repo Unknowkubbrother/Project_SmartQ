@@ -345,7 +345,15 @@ const DisplayBoard: React.FC = () => {
     
     <div className="h-screen flex justify-start items-center flex-col bg-gradient-to-br from-sky-50 via-white to-slate-50 p-4 lg:p-6">
       
-      <header className="text-center mb-3 sm:mb-5 w-full">
+      <header className="text-center mb-3 sm:mb-5 w-full relative">
+        <Link to="/start" className="absolute left-0 top-1/2 transform -translate-y-1/2">
+          <Button
+            variant="outline"
+            className="inline-flex items-center gap-2 text-sky-600 hover:bg-sky-50 transition-colors text-sm px-4 py-2"
+          >
+            <ArrowLeftFromLine className="w-4 h-4" /> กลับไปเลือกบริการ
+          </Button>
+        </Link>
         <div className="inline-flex items-center gap-4 bg-sky-600/10 px-6 py-2 rounded-2xl shadow-xl border border-sky-400 transform transition-all hover:scale-[1.01] duration-300">
           <Radio className="text-sky-600 w-7 h-7 lg:w-9 lg:h-9 animate-pulse" />
           <h1 className="text-3xl sm:text-4xl lg:text-4xl font-extrabold text-sky-800 tracking-wider">
@@ -537,7 +545,7 @@ const DisplayBoard: React.FC = () => {
                         
                         <div 
                           className={cn(
-                            "text-center leading-none p-2 transition-all duration-300 rounded-lg w-full h-full flex flex-col items-center justify-center", 
+                            "text-center leading-none aspect-square transition-all duration-300 rounded-lg w-full h-full flex flex-col items-center justify-center", 
                             bgClass, 
                             {
                               
@@ -608,17 +616,7 @@ const DisplayBoard: React.FC = () => {
 
         </div>
       </div>
-      
-      <div className="mt-1 sm:mt-5 text-center w-full max-w-7xl">
-        <Link to="/start" className="inline-block">
-          <Button
-            variant="outline"
-            className="inline-flex items-center gap-2 text-sky-600 hover:bg-sky-50 transition-colors text-sm px-4 py-2"
-          >
-            <ArrowLeftFromLine className="w-4 h-4" /> กลับไปเลือกบริการ
-          </Button>
-        </Link>
-      </div>
+    
     </div>
   );
 };

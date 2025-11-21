@@ -2,10 +2,10 @@
     "DEBUG": true,
     "HOSPITAL_NAME": "โรงพยาบาลส่งเสริมสุขภาพตำบลคลองบุหรี่",
     "LOGO_FILE": "logo.png",
-    "VIDEO_URL": "https://www.youtube.com/watch?v=pjhjEUbg7vY",
+    "VIDEO_URL": "https://www.youtube.com/watch?v=VQo4hyWfBQ4",
     "IMAGE_URL": "6b7b5f8aafac5edffd93fdc60ed0f772.png",
     "DB": {
-        "HOST": "192.168.0.41",
+        "HOST": "localhost",
         "PORT": 3333,
         "USERNAME": "root",
         "PASSWORD": "my-secret-pw",
@@ -44,6 +44,16 @@
                 },
                 {
                     "name": "ช่องจ่ายยา 4"
+                }
+            ]
+        },
+        {
+            "label": "ใหม่",
+            "name": "service_3",
+            "color": "#888888",
+            "counters": [
+                {
+                    "name": "ช่อง 1"
                 }
             ]
         }
