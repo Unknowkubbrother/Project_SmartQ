@@ -473,7 +473,7 @@ const DisplayBoard: React.FC = () => {
           </div>
           
           
-          <section className="grid gap-3 flex-1 grid-cols-1 overflow-hidden">
+          <section className="grid gap-3 flex-1 grid-cols-1 overflow-y-auto">
             {sortedVisibleServices.map((item) => {
               const { def: s, state: st } = item;
               const current = st?.current;
