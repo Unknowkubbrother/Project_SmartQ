@@ -412,10 +412,10 @@ const DisplayBoard: React.FC = () => {
                   src={initalData.VIDEO_URL}
                   width="100%"
                   height="100%"
-                  controls={false}
+                  controls={true}
                   playing
-                  volume={0}
-                  muted={true}
+                  volume={0.02}
+                  muted={false}
                   loop
                 />
                 ) : mediaMode === "image" && imageEnabled ? (
