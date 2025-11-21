@@ -17,7 +17,7 @@ For iOS development, run:
   xcrun xctrace list devices
   xcrun simctl shutdown all
   xcrun simctl erase all
-  bun run tauri ios dev "9010DA6C-D867-429C-B84F-78657B168C83"
+  bun run tauri ios dev "iPad Pro 13-inch (M4)"
   xcrun simctl list devices available
 
 build
@@ -26,5 +26,4 @@ To build the project for production, run:
 
 backend start
 uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
-
-https://corpwifi.ais.co.th/
+python gui.py
