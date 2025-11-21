@@ -15,7 +15,6 @@ import {
 import { Link } from "react-router-dom";
 import ReactPlayer from "react-player";
 
-// CN Utility for merging class names
 const cn = (
   ...classes: (
     | string
@@ -56,6 +55,7 @@ interface ServiceState {
   queues: any[];
   muted?: boolean;
   isCalling?: boolean;
+  lastCalledTimestamp: number;
 }
 
 const DisplayBoard: React.FC = () => {
@@ -68,12 +68,9 @@ const DisplayBoard: React.FC = () => {
   const callTimersRef = useRef<Record<string, number | null>>({});
   
   
-  const lastCalledRef = useRef<Record<string, number>>({});
-
-
   const { backendUrl, initalData } = useBackend();
 
-  // --- 1. Data Fetching (Unchanged) ---
+  
   useEffect(() => {
     const fetchServices = async () => {
       try {
@@ -89,7 +86,7 @@ const DisplayBoard: React.FC = () => {
     if (backendUrl) fetchServices();
   }, [backendUrl]);
 
-  // --- 2. WebSocket and State Management Logic (Updated to track lastCalled time) ---
+  
   useEffect(() => {
     let mounted = true;
     services.forEach((s) => {
@@ -124,6 +121,7 @@ const DisplayBoard: React.FC = () => {
                   next: null,
                   queues: [],
                   muted: false,
+                  lastCalledTimestamp: 0,
                 };
                 return { ...prev, [service]: { ...cur, isCalling: true } };
               });
@@ -145,6 +143,7 @@ const DisplayBoard: React.FC = () => {
                 next: null,
                 queues: [],
                 muted: false,
+                lastCalledTimestamp: 0,
               };
               if (msg.type === "queue_update") {
                 const queues = msg.queue || [];
@@ -152,14 +151,12 @@ const DisplayBoard: React.FC = () => {
                 const next = queues.length > 0 ? queues[0] : null; 
                 return { ...prev, [service]: { ...cur, queues, next } };
               } else if (msg.type === "current") {
+                const now = Date.now();
                 const newState = { ...cur, current: msg.item || null };
                 if (msg.item) {
                   
-                  lastCalledRef.current[service] = Date.now();
+                  (newState as ServiceState).lastCalledTimestamp = now;
                   (newState as ServiceState).isCalling = true;
-                } else if (cur.current) {
-                  
-                   delete lastCalledRef.current[service];
                 }
                 return { ...prev, [service]: newState };
               } else if (msg.type === "status") {
@@ -281,8 +278,7 @@ const DisplayBoard: React.FC = () => {
     };
   }, [services]);
 
-  // --- 3. JSX Rendering (Optimized for 65/35 Split and Ultra-Compact Cards) ---
-
+  
   const videoEnabled = !!initalData?.VIDEO_URL;
   const imageEnabled = !!(initalData as any)?.IMAGE_URL;
 
@@ -313,7 +309,7 @@ const DisplayBoard: React.FC = () => {
     .map(s => {
       
       const state = stateMap[s.name];
-      const lastCalledTime = lastCalledRef.current[s.name] || 0;
+      const lastCalledTime = state?.lastCalledTimestamp || 0;
       return { def: s, state: state, lastCalled: lastCalledTime };
     })
     .filter(item => item.state?.current) 
@@ -321,7 +317,7 @@ const DisplayBoard: React.FC = () => {
     .sort((a, b) => {
         
         if (a.lastCalled !== b.lastCalled) {
-            return a.lastCalled - b.lastCalled;
+            return b.lastCalled - a.lastCalled; 
         }
         
         return a.def.name.localeCompare(b.def.name);
@@ -330,12 +326,10 @@ const DisplayBoard: React.FC = () => {
   
   const numVisible = sortedVisibleServices.length || 1;
   
-  const ultraCompactCardClass = numVisible >= 4 ? "p-3 gap-3" : "p-4 gap-4"; 
-  
   
   const cardHeightClass = cn({
       "max-h-[30vh]": numVisible === 1,
-      "max-h-[25vh]": numVisible === 2,
+      "max-h-[23vh]": numVisible === 2,
       "flex-1": numVisible >= 3,
   });
 
@@ -431,7 +425,7 @@ const DisplayBoard: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                // fallback: show whichever is available
+                
                 videoEnabled ? (
                   <ReactPlayer
                     src={initalData.VIDEO_URL}
