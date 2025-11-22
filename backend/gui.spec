@@ -68,7 +68,8 @@ exe = EXE(
     upx=True,
     console=False,
     disable_windowed_traceback=False,
-    windowed=True
+    windowed=True,
+    uac_admin=True
 )
 
 coll = COLLECT(
