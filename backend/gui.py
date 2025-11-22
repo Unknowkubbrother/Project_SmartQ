@@ -14,18 +14,7 @@ from ttkbootstrap.constants import *
 from tkinter.scrolledtext import ScrolledText
 import re
 from src.config import config as cfg
-import socket
-
-def get_local_ipv4():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-    except Exception:
-        ip = "127.0.0.1"
-    finally:
-        s.close()
-    return ip
+from src.lib.infosystem import get_local_ipv4 , get_system_mac
 
 if getattr(sys, 'frozen', False):
     HERE = os.path.dirname(sys.executable)
