@@ -7,14 +7,40 @@ import sys
 import time
 import shutil
 import tkinter as tk
+import requests
 from tkinter import messagebox, filedialog, simpledialog
 from tkinter.colorchooser import askcolor
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 from tkinter.scrolledtext import ScrolledText
 import re
-from src.config import config as cfg
-from src.lib.infosystem import get_local_ipv4 , get_system_mac
+
+# ============================================================================
+#  CONFIGURATION & HELPER MOCKS (FALLBACKS)
+# ============================================================================
+try:
+    from src.config import config as cfg
+    from src.lib.infosystem import get_local_ipv4, get_system_mac
+except ImportError:
+    class ConfigMock:
+        pass
+    cfg = ConfigMock()
+
+    def get_local_ipv4():
+        import socket
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except:
+            return "127.0.0.1"
+
+    def get_system_mac():
+        import uuid
+        return ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0, 2 * 6, 2)][::-1])
+
 
 if getattr(sys, 'frozen', False):
     HERE = os.path.dirname(sys.executable)
@@ -22,6 +48,198 @@ else:
     HERE = os.path.dirname(os.path.abspath(__file__))
 
 CONFIG_PATH = getattr(cfg, 'config_path', os.path.join(HERE, 'config', 'config.json'))
+
+
+# ============================================================================
+#  LICENSE API SYSTEM
+# ============================================================================
+
+SECURE_API = "https://lock-software-api.unknowkubbrother.net/"
+
+def validate_token(license_key: str, mac_address: str = None) -> tuple:
+    try:
+        # เตรียม Payload
+        payload = {"license_key": license_key}
+        if mac_address is not None:
+            payload["mac_address"] = mac_address
+
+        # ยิง Request
+        response = requests.post(
+            f"{SECURE_API}/license/validate",
+            json=payload,
+            timeout=10, 
+            headers={"Content-Type": "application/json"},
+        )
+
+        try:
+            data = response.json()
+        except ValueError:
+            data = None
+
+        msg = (data or {}).get("msg") or response.text
+        is_valid = bool((data or {}).get("valid", False))
+
+        print(f"Validation response: {response.status_code} - {msg}")
+        return is_valid, msg, response.status_code
+
+    except requests.RequestException as e:
+        print(f"Failed to validate token: {e}")
+        return False, f"Connection Error: {str(e)}", None
+
+
+def check_license_status():
+    mac = get_system_mac().strip().upper()
+    
+    config_data = {}
+    
+    config_dir = os.path.dirname(CONFIG_PATH)
+    if not os.path.exists(config_dir):
+        try:
+            os.makedirs(config_dir)
+        except:
+            pass
+
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+        except Exception:
+            config_data = {}
+
+    current_key = config_data.get('LICENSE_KEY', '').strip()
+    
+    if not current_key:
+        return False, mac, config_data
+    
+    is_valid, msg, _ = validate_token(current_key, mac_address=mac)
+    
+    if is_valid:
+        return True, mac, config_data
+    else:
+        print(f"License validation failed: {msg}")
+        return False, mac, config_data
+
+
+class LicenseDialog(tb.Toplevel):
+    def __init__(self, parent, mac_address, config_data):
+        super().__init__(title="Product Activation Required", master=parent)
+        
+        self.mac_address = mac_address
+        self.config_data = config_data
+        
+        self.geometry("550x420")
+        self.resizable(False, False)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.verified = False 
+        
+        self._build_ui()
+        self._center_window()
+
+    def _center_window(self):
+        self.update_idletasks()
+        width = self.winfo_width()
+        height = self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
+
+    def _build_ui(self):
+        container = tb.Frame(self, padding=20)
+        container.pack(fill=BOTH, expand=True)
+
+        # Header
+        tb.Label(container, text="SmartQ Server Activation", bootstyle="danger", font=("Helvetica", 16, "bold")).pack(pady=(0, 10))
+        
+        msg = "License Key ไม่ถูกต้องหรือหมดอายุ\nกรุณาติดต่อ Admin เพื่อขอ License Key ใหม่"
+        tb.Label(container, text=msg, justify="center").pack(pady=5)
+
+        # Info Frame
+        info_frame = tb.Labelframe(container, text="System Information", padding=10, bootstyle="info")
+        info_frame.pack(fill=X, pady=10)
+        
+        # MAC
+        row1 = tb.Frame(info_frame)
+        row1.pack(fill=X, pady=2)
+        tb.Label(row1, text="MAC Address:", width=15).pack(side=LEFT)
+        self.mac_entry = tb.Entry(row1, bootstyle="readonly")
+        self.mac_entry.insert(0, self.mac_address)
+        self.mac_entry.config(state="readonly")
+        self.mac_entry.pack(side=LEFT, fill=X, expand=True, padx=5)
+        tb.Button(row1, text="Copy", command=lambda: self._copy_text(self.mac_address), bootstyle="secondary-outline", width=6).pack(side=LEFT)
+
+        # License Key Input
+        input_frame = tb.Labelframe(container, text="Enter License Key", padding=10, bootstyle="success")
+        input_frame.pack(fill=X, pady=5)
+        
+        self.key_entry = tb.Entry(input_frame)
+        self.key_entry.pack(fill=X)
+        self.key_entry.bind('<Return>', lambda e: self._activate())
+
+        # Status Label
+        self.status_label = tb.Label(container, text="", bootstyle="danger", font=("Helvetica", 9))
+        self.status_label.pack(pady=5)
+
+        # Buttons
+        btn_frame = tb.Frame(container)
+        btn_frame.pack(pady=10)
+        
+        self.btn_activate = tb.Button(btn_frame, text="Activate Check", command=self._activate, bootstyle="success", width=15)
+        self.btn_activate.pack(side=LEFT, padx=5)
+        
+        tb.Button(btn_frame, text="Exit", command=self._on_close, bootstyle="danger-outline", width=10).pack(side=LEFT, padx=5)
+
+    def _copy_text(self, text):
+        self.clipboard_clear()
+        self.clipboard_append(text)
+        messagebox.showinfo("Copied", "Copied to clipboard!")
+
+    def _activate(self):
+        input_key = self.key_entry.get().strip()
+        
+        if not input_key:
+            self.status_label.config(text="กรุณากรอก License Key")
+            return
+
+        # UI Loading state
+        self.config(cursor="watch")
+        self.status_label.config(text="Checking with server...", bootstyle="warning")
+        self.btn_activate.config(state="disabled")
+        self.update() 
+
+        # Call API
+        is_valid, msg, status_code = validate_token(input_key, mac_address=self.mac_address)
+        
+        # Reset UI
+        self.config(cursor="")
+        self.btn_activate.config(state="normal")
+
+        if is_valid:
+            try:
+                self.config_data['LICENSE_KEY'] = input_key
+                with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+                    json.dump(self.config_data, f, ensure_ascii=False, indent=4)
+                
+                messagebox.showinfo("Activation Success", f"เปิดใช้งานสำเร็จ!\nServer Message: {msg}")
+                self.verified = True
+                self.destroy()
+            except Exception as e:
+                self.status_label.config(text=f"Save Error: {e}", bootstyle="danger")
+        else:
+            error_msg = f"Failed: {msg}"
+            if status_code:
+                 error_msg += f" (Code: {status_code})"
+            self.status_label.config(text=error_msg, bootstyle="danger")
+            messagebox.showerror("Failed", error_msg)
+
+    def _on_close(self):
+        self.destroy()
+        if not self.verified:
+            sys.exit(0)
+
+
+# ============================================================================
+#  BACKEND GUI (MAIN APP)
+# ============================================================================
 
 class BackendGUI:
     def __init__(self, root):
@@ -214,7 +432,6 @@ class BackendGUI:
             messagebox.showerror('Error', f'Could not create assets directory: {e}')
             return
 
-        # แก้ไข filetypes ให้รองรับเฉพาะ PNG
         filetypes = [('PNG files', '*.png'), ('All files', '*.*')]
         source_path = filedialog.askopenfilename(title='Select Logo File to Upload (PNG only)', initialdir=os.path.expanduser('~'), filetypes=filetypes)
         
@@ -290,7 +507,6 @@ class BackendGUI:
                 except Exception:
                     self.image_preview_label.config(text='Preview unavailable (could not load)')
             else:
-                # remote URL or unsupported format
                 self.image_preview_label.config(text='Preview unavailable (remote or unsupported format)')
         except Exception:
             pass
@@ -873,8 +1089,30 @@ class BackendGUI:
         self.current_tags = []
 
 
+# ============================================================================
+#  MAIN
+# ============================================================================
 if __name__ == '__main__':
     root = tb.Window(themename="litera")
     root.minsize(900, 600)
-    app = BackendGUI(root)
-    root.mainloop()
+    root.withdraw() 
+    
+    is_valid, mac_addr, cfg_data = check_license_status()
+    
+    if is_valid:
+        print("License Valid via Server check.")
+        root.deiconify()
+        app = BackendGUI(root)
+        root.mainloop()
+    else:
+        print("License Invalid or Offline. Opening Activation Dialog...")
+        
+        license_window = LicenseDialog(root, mac_addr, cfg_data)
+        root.wait_window(license_window)
+        
+        if license_window.verified:
+            root.deiconify()
+            app = BackendGUI(root)
+            root.mainloop()
+        else:
+            root.destroy()
