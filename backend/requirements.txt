@@ -6,3 +6,4 @@ numpy
 pymysql
 ttkbootstrap
 websockets
+requests

@@ -5,13 +5,50 @@ import logging
 from src.router.jhcis import jhcis_router
 from src.router.queue import queue_router
 from src.config.config import get , resource_path
+
+try:
+    from src.lib.infosystem import get_system_mac
+except Exception:
+    def get_system_mac():
+        try:
+            import uuid
+            mac_int = uuid.getnode()
+            mac = mac_int.to_bytes(6, "big")
+            return ":".join(f"{b:02X}" for b in mac)
+        except Exception:
+            return "00:00:00:00:00:00"
+import json
+import urllib.request
 import socket
 import base64
+import sys
+
+SECURE_API = "https://lock-software-api.unknowkubbrother.net"
+
+def validate_token_remote(license_key: str, mac_address: str = None) -> tuple:
+    payload = {"license_key": license_key}
+    if mac_address:
+        payload["mac_address"] = mac_address
+    try:
+        import requests
+        r = requests.post(f"{SECURE_API}/license/validate", json=payload, timeout=10)
+        j = r.json() if r.text else {}
+        return bool(j.get("valid", False)), j.get("msg") or r.text, r.status_code
+    except Exception:
+        try:
+            req = urllib.request.Request(f"{SECURE_API}/license/validate", data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                body = r.read().decode()
+                j = json.loads(body) if body else {}
+                return bool(j.get("valid", False)), j.get("msg") or body, r.getcode()
+        except Exception as e:
+            return False, str(e), None
 
 def image_to_data_uri(path: str, mime_type: str = "image/png") -> str:
     with open(path, "rb") as image_file:
         encoded = base64.b64encode(image_file.read()).decode("utf-8")
-        return f"data:{mime_type};base64,{encoded}"
+    return f"data:{mime_type};base64,{encoded}"
+
 def get_local_ipv4():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -30,10 +67,8 @@ CYAN = "\033[96m"
 RESET = "\033[0m"
 
 try:
-    # Print with emoji and colors where supported; fall back to plain ASCII on Windows
     print(f"🌐 IPV4 เครื่อง Server คือ {CYAN}{ip}{RESET}")
 except UnicodeEncodeError:
-    # Some Windows consoles (cp874 / legacy codepages) cannot encode emoji — print a safe ASCII fallback
     print(f"IPV4 เครื่อง Server คือ {ip}")
 
 ASSETS_DIR = resource_path("assets")
@@ -105,11 +140,44 @@ app.include_router(jhcis_router, prefix="/api/jhcis")
 
 if __name__ == "__main__":
     import uvicorn
-    # Allow overriding the port via environment variable SMARTQ_PORT
     try:
         port = int(os.environ.get('SMARTQ_PORT', '8000'))
     except Exception:
         port = 8000
+    try:
+        license_key = get('LICENSE_KEY')
+    except Exception:
+        license_key = None
+
+    try:
+        mac_addr = get_system_mac()
+    except Exception:
+        mac_addr = None
+
+    if not license_key:
+        print("\n===============================================================")
+        print("SmartQ server will not start: missing LICENSE_KEY in config.")
+        print("Please send the machine MAC address below to your administrator to get a license key:")
+        print(f"MAC: {mac_addr if mac_addr else 'unknown'}")
+        print("Put the received LICENSE_KEY into backend/config/config.json under 'LICENSE_KEY' and restart.")
+        print("===============================================================\n")
+        sys.exit(1)
+    else:
+        try:
+            is_valid, msg, status = validate_token_remote(license_key, mac_address=mac_addr)
+            if not is_valid:
+                print("\n===============================================================")
+                print("SmartQ server will not start: LICENSE_KEY is invalid or not authorized for this machine.")
+                print(f"Server message: {msg}")
+                print("If you believe this is an error, contact support with the machine MAC address below:")
+                print(f"MAC: {mac_addr if mac_addr else 'unknown'}")
+                print("===============================================================\n")
+                sys.exit(1)
+            else:
+                print("License validated — starting server.")
+        except Exception as e:
+            print(f"License validation error: {e}")
+            print("Proceeding cautiously: starting server (validation could not be completed).")
     uvicorn.run(
         app,
         host="0.0.0.0",
