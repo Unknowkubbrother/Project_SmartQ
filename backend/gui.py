@@ -54,7 +54,7 @@ CONFIG_PATH = getattr(cfg, 'config_path', os.path.join(HERE, 'config', 'config.j
 #  LICENSE API SYSTEM
 # ============================================================================
 
-SECURE_API = "https://lock-software-api.unknowkubbrother.net/"
+SECURE_API = "https://lock-software-api.unknowkubbrother.net"
 
 def validate_token(license_key: str, mac_address: str = None) -> tuple:
     try:
